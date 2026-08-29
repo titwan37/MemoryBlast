@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MemoryBlast — Task Manager</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="fluent-dark">
+  <!-- Top Application Bar -->
+  <header class="titlebar">
+    <div class="titlebar-left">
+      <div class="app-icon">⚡</div>
+      <span class="app-title">MemoryBlast</span>
+    </div>
+    
+    <div class="search-container">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="global-search" placeholder="Type a name, PID, or tab title to search" autocomplete="off">
+      <button id="search-clear" class="btn-clear hidden">✕</button>
+    </div>
+
+    <div class="titlebar-actions">
+      <div id="admin-badge" class="badge badge-user">[STANDARD USER]</div>
+      <button id="btn-detect-tabs" class="fluent-btn" title="Retrigger detection of browser tab names and window titles">
+        <span class="btn-icon">🔍</span> Detect Tabs
+      </button>
+      <button id="btn-focus-tab" class="fluent-btn btn-primary" disabled title="Bring browser window to foreground and switch to this tab">
+        <span class="btn-icon">🎯</span> Focus Tab
+      </button>
+      <button id="btn-end-task" class="fluent-btn btn-danger" disabled>
+        <span class="btn-icon">✕</span> End task
+      </button>
+      <button id="btn-refresh" class="fluent-btn" title="Refresh metrics">
+        <span class="btn-icon">🔄</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Layout Container -->
+  <div class="app-body">
+    <!-- Left Navigation Rail -->
+    <nav class="sidebar">
+      <div class="nav-top">
+        <button class="nav-btn nav-hamburger" id="nav-toggle">
+          <span class="nav-icon">☰</span>
+        </button>
+        <button class="nav-btn active" data-view="processes" id="nav-processes">
+          <span class="nav-icon">🗂️</span>
+          <span class="nav-label">Processes</span>
+        </button>
+        <button class="nav-btn" data-view="performance" id="nav-performance">
+          <span class="nav-icon">📈</span>
+          <span class="nav-label">Performance</span>
+        </button>
+      </div>
+
+      <div class="nav-bottom">
+        <button class="nav-btn" id="nav-cli-hint" title="Terminal TUI available with --cli">
+          <span class="nav-icon">💻</span>
+          <span class="nav-label">CLI Mode</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Content Panels -->
+    <main class="content-container">
+      <!-- VIEW 1: PROCESSES TREE -->
+      <section id="view-processes" class="view-panel active">
+        <!-- Quick Stats Header Banner -->
+        <div class="stats-banner">
+          <div class="banner-stat">
+            <span class="stat-label">Total Memory In Use:</span>
+            <span class="stat-value" id="banner-ram-used">-- / -- GB</span>
+          </div>
+          <div class="banner-stat">
+            <span class="stat-label">Committed:</span>
+            <span class="stat-value" id="banner-commit">-- / -- GB</span>
+          </div>
+          <div class="banner-stat">
+            <span class="stat-label">Paged / Non-Paged:</span>
+            <span class="stat-value" id="banner-pools">-- / --</span>
+          </div>
+          <div class="banner-stat right">
+            <span class="stat-label">Active Processes:</span>
+            <span class="stat-value" id="banner-proc-count">0</span>
+          </div>
+        </div>
+
+        <!-- Process Table -->
+        <div class="table-scroll-container">
+          <table class="fluent-table" id="process-table">
+            <thead>
+              <tr>
+                <th class="col-name sortable" data-sort="name">Name <span class="sort-indicator"></span></th>
+                <th class="col-pid sortable" data-sort="pid">PID <span class="sort-indicator"></span></th>
+                <th class="col-type">Type / Role</th>
+                <th class="col-cpu sortable" data-sort="cpu">CPU <span class="sort-indicator"></span></th>
+                <th class="col-memory sortable active-sort desc" data-sort="memory">Memory <span class="sort-indicator">▼</span></th>
+                <th class="col-ws">Working Set</th>
+              </tr>
+            </thead>
+            <tbody id="process-table-body">
+              <tr>
+                <td colspan="6" class="loading-cell">Loading system processes and Chromium tabs...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW 2: PERFORMANCE GRAPHS -->
+      <section id="view-performance" class="view-panel">
+        <div class="performance-layout">
+          <!-- Mini sidebar list -->
+          <div class="perf-sidebar">
+            <div class="perf-card active" id="card-memory">
+              <div class="card-header">
+                <span class="card-title">Memory</span>
+                <span class="card-metric" id="mini-mem-percent">0%</span>
+              </div>
+              <div class="card-sub" id="mini-mem-val">0 / 0 GB</div>
+              <canvas class="sparkline" id="mini-mem-sparkline" width="160" height="40"></canvas>
+            </div>
+          </div>
+
+          <!-- Main Performance Detail Area -->
+          <div class="perf-detail">
+            <div class="perf-header">
+              <div>
+                <h1 class="perf-title">Memory</h1>
+                <p class="perf-subtitle" id="perf-total-capacity">-- GB Host Memory</p>
+              </div>
+              <div class="perf-header-right">
+                <span class="perf-tag">Memory usage (60 seconds)</span>
+              </div>
+            </div>
+
+            <!-- Real-time 60s Canvas Graph -->
+            <div class="chart-container">
+              <canvas id="memory-chart"></canvas>
+              <div class="chart-label-top" id="chart-max-label">-- GB</div>
+              <div class="chart-label-bottom">0 GB</div>
+              <div class="chart-time-label">60 seconds</div>
+            </div>
+
+            <!-- Memory Composition Bar -->
+            <div class="composition-container">
+              <div class="composition-label">Memory composition</div>
+              <div class="composition-bar">
+                <div class="comp-segment in-use" id="comp-in-use" style="width: 50%;"></div>
+                <div class="comp-segment cached" id="comp-cached" style="width: 25%;"></div>
+                <div class="comp-segment available" id="comp-avail" style="width: 25%;"></div>
+              </div>
+              <div class="comp-legend">
+                <span class="legend-item"><span class="legend-dot in-use"></span> In use</span>
+                <span class="legend-item"><span class="legend-dot cached"></span> Cached</span>
+                <span class="legend-item"><span class="legend-dot available"></span> Available</span>
+              </div>
+            </div>
+
+            <!-- Detailed Grid -->
+            <div class="perf-grid">
+              <div class="grid-item">
+                <div class="grid-label">In use (Compressed)</div>
+                <div class="grid-val" id="perf-in-use">-- GB</div>
+              </div>
+              <div class="grid-item">
+                <div class="grid-label">Available</div>
+                <div class="grid-val" id="perf-avail">-- GB</div>
+              </div>
+              <div class="grid-item">
+                <div class="grid-label">Committed</div>
+                <div class="grid-val" id="perf-commit">-- / -- GB</div>
+              </div>
+              <div class="grid-item">
+                <div class="grid-label">Cached</div>
+                <div class="grid-val" id="perf-cached">-- GB</div>
+              </div>
+              <div class="grid-item">
+                <div class="grid-label">Paged pool</div>
+                <div class="grid-val" id="perf-paged">-- GB</div>
+              </div>
+              <div class="grid-item">
+                <div class="grid-label">Non-paged pool</div>
+                <div class="grid-val" id="perf-nonpaged">-- GB</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- End Task Confirmation Dialog Modal -->
+  <div id="kill-modal" class="modal-overlay hidden">
+    <div class="fluent-dialog">
+      <div class="dialog-header">
+        <span class="dialog-icon">⚠️</span>
+        <h3 class="dialog-title">End Process</h3>
+      </div>
+      <div class="dialog-body">
+        <p>Do you want to end <strong id="modal-proc-name">Process</strong> (PID: <span id="modal-proc-pid">--</span>)?</p>
+        <p class="dialog-warning">If an open program is associated with this process, it will close and you will lose any unsaved data.</p>
+      </div>
+      <div class="dialog-footer">
+        <button id="modal-btn-confirm" class="fluent-btn btn-danger">End process</button>
+        <button id="modal-btn-cancel" class="fluent-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="fluent-toast hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
