@@ -18,6 +18,8 @@ windows = { version = "0.58", features = [
     "Win32_Security",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Accessibility",
+    "Data_Xml_Dom",
+    "UI_Notifications",
 ] }
 
 ratatui = "0.29"
@@ -27,6 +29,9 @@ crossbeam-channel = "0.5"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+ntapi = "0.4"
+rusqlite = { version = "0.32", features = ["bundled"] }
+polars = { version = "0.38", features = ["lazy", "parquet"] }
 
 [profile.release]
 opt-level = 3

@@ -25,7 +25,16 @@
       <button id="btn-detect-tabs" class="fluent-btn" title="Retrigger detection of browser tab names and window titles">
         <span class="btn-icon">🔍</span> Detect Tabs
       </button>
-      <button id="btn-focus-tab" class="fluent-btn btn-primary" disabled title="Bring browser window to foreground and switch to this tab">
+      <button id="btn-park-context" class="fluent-btn btn-primary" title="Park Current Context: Stash open tabs & reclaim RAM (Global Hotkey: Ctrl+Shift+F)">
+        <span class="btn-icon">📦</span> Park Context <span class="hotkey-chip">Ctrl+Shift+F</span>
+      </button>
+      <button id="btn-trim-ram" class="fluent-btn" disabled title="Trim Resident Working Set (K32EmptyWorkingSet)">
+        <span class="btn-icon">✂️</span> Trim RAM
+      </button>
+      <button id="btn-export-parquet" class="fluent-btn" title="Export Snapshot to Apache Parquet Columnar Storage">
+        <span class="btn-icon">💾</span> Parquet
+      </button>
+      <button id="btn-focus-tab" class="fluent-btn" disabled title="Bring browser window to foreground and switch to this tab">
         <span class="btn-icon">🎯</span> Focus Tab
       </button>
       <button id="btn-end-task" class="fluent-btn btn-danger" disabled>
@@ -49,9 +58,22 @@
           <span class="nav-icon">🗂️</span>
           <span class="nav-label">Processes</span>
         </button>
+        <button class="nav-btn" data-view="treemap" id="nav-treemap">
+          <span class="nav-icon">🗺️</span>
+          <span class="nav-label">Treemap</span>
+        </button>
         <button class="nav-btn" data-view="performance" id="nav-performance">
           <span class="nav-icon">📈</span>
           <span class="nav-label">Performance</span>
+        </button>
+        <button class="nav-btn" data-view="analytics" id="nav-analytics">
+          <span class="nav-icon">🧠</span>
+          <span class="nav-label">Cognitive AI</span>
+        </button>
+        <button class="nav-btn" data-view="copilot" id="nav-copilot">
+          <span class="nav-icon">🎯</span>
+          <span class="nav-label">Focus Copilot</span>
+          <span id="copilot-badge" class="nav-badge hidden">0</span>
         </button>
       </div>
 
@@ -92,12 +114,12 @@
           <table class="fluent-table" id="process-table">
             <thead>
               <tr>
-                <th class="col-name sortable" data-sort="name">Name <span class="sort-indicator"></span></th>
-                <th class="col-pid sortable" data-sort="pid">PID <span class="sort-indicator"></span></th>
-                <th class="col-type">Type / Role</th>
-                <th class="col-cpu sortable" data-sort="cpu">CPU <span class="sort-indicator"></span></th>
-                <th class="col-memory sortable active-sort desc" data-sort="memory">Memory <span class="sort-indicator">▼</span></th>
-                <th class="col-ws">Working Set</th>
+                <th class="col-name sortable" data-sort="name" data-col="name" title="Drag edge to resize column, double-click to reset">Name <span class="sort-indicator"></span><div class="col-resizer"></div></th>
+                <th class="col-pid sortable" data-sort="pid" data-col="pid" title="Drag edge to resize column, double-click to reset">PID <span class="sort-indicator"></span><div class="col-resizer"></div></th>
+                <th class="col-type" data-col="type" title="Drag edge to resize column, double-click to reset">Type / Role<div class="col-resizer"></div></th>
+                <th class="col-cpu sortable" data-sort="cpu" data-col="cpu" title="Drag edge to resize column, double-click to reset">CPU <span class="sort-indicator"></span><div class="col-resizer"></div></th>
+                <th class="col-memory sortable active-sort desc" data-sort="memory" data-col="memory" title="Drag edge to resize column, double-click to reset">Memory <span class="sort-indicator">▼</span><div class="col-resizer"></div></th>
+                <th class="col-ws" data-col="ws" title="Drag edge to resize column, double-click to reset">Working Set<div class="col-resizer"></div></th>
               </tr>
             </thead>
             <tbody id="process-table-body">
@@ -185,6 +207,303 @@
                 <div class="grid-label">Non-paged pool</div>
                 <div class="grid-val" id="perf-nonpaged">-- GB</div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: INTERACTIVE SQUARIFIED TREEMAP -->
+      <section id="view-treemap" class="view-panel">
+        <div class="treemap-header-bar">
+          <div class="treemap-breadcrumbs" id="treemap-breadcrumbs">
+            <span class="crumb" id="crumb-root">🖥️ System Memory</span>
+          </div>
+          <div class="treemap-legend">
+            <span class="legend-chip chip-tab"><span class="chip-dot" style="background:#10B981"></span> Chromium Tabs</span>
+            <span class="legend-chip chip-browser"><span class="chip-dot" style="background:#3B82F6"></span> Browser Clusters</span>
+            <span class="legend-chip chip-gpu"><span class="chip-dot" style="background:#8B5CF6"></span> GPU / Renderers</span>
+            <span class="legend-chip chip-ext"><span class="chip-dot" style="background:#F59E0B"></span> Extensions</span>
+            <span class="legend-chip chip-leak"><span class="chip-dot" style="background:#EF4444"></span> High RAM / Leaks</span>
+          </div>
+          <div class="treemap-controls">
+            <button id="btn-treemap-reset" class="fluent-btn" title="Reset Zoom">🔄 Reset View</button>
+          </div>
+        </div>
+
+        <div class="treemap-container-wrap">
+          <div id="treemap-viewport" class="treemap-viewport">
+            <div class="treemap-loading">Computing Squarified Treemap Layout (Bruls, Huizing, van Wijk)...</div>
+          </div>
+        </div>
+
+        <div class="treemap-footer-inspector" id="treemap-inspector">
+          <div class="inspector-info">
+            <span class="inspector-title" id="insp-title">Select a process rectangle above to inspect</span>
+            <span class="inspector-sub" id="insp-sub">--</span>
+          </div>
+          <div class="inspector-actions">
+            <button id="insp-btn-trim" class="fluent-btn" disabled><span class="btn-icon">✂️</span> Trim Working Set</button>
+            <button id="insp-btn-focus" class="fluent-btn btn-primary" disabled><span class="btn-icon">🎯</span> Focus Tab</button>
+            <button id="insp-btn-kill" class="fluent-btn btn-danger" disabled><span class="btn-icon">✕</span> End Process</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 4: COGNITIVE AI & BEHAVIORAL ANALYTICS -->
+      <section id="view-analytics" class="view-panel">
+        <div class="analytics-layout">
+          <!-- Top Row: OOM Forecast & Polars Telemetry Banner -->
+          <div class="analytics-summary-banner">
+            <div class="analytics-card oom-card">
+              <div class="card-badge" id="oom-badge">HEALTHY</div>
+              <div class="card-metric-title">Out-of-Memory (OOM) Forecast</div>
+              <div class="card-metric-val" id="oom-forecast-val">Stable (No OOM Risk)</div>
+              <div class="card-metric-sub" id="oom-forecast-sub">Host commit velocity: +0.0 MB/min | Current load: 0%</div>
+            </div>
+
+            <div class="analytics-card telemetry-card">
+              <div class="card-badge badge-blue">POLARS & PARQUET</div>
+              <div class="card-metric-title">Columnar Telemetry Pipeline</div>
+              <div class="card-metric-val" id="telemetry-status-val">Streaming Active (500ms)</div>
+              <div class="card-metric-sub">Fast Apache Parquet time-series persistence ready</div>
+              <button id="btn-export-parquet-inline" class="fluent-btn" style="margin-top:8px;">
+                <span class="btn-icon">💾</span> Export Parquet Snapshot
+              </button>
+            </div>
+          </div>
+
+          <!-- Section 2: Proactive Optimization Recommendations -->
+          <div class="recommendations-container">
+            <div class="section-title-row">
+              <h2 class="section-title">💡 Proactive Optimization Recommendations</h2>
+              <span class="section-badge" id="rec-count-badge">0 Suggestions</span>
+            </div>
+            <div class="recommendations-grid" id="recommendations-grid">
+              <div class="rec-empty-card">Evaluating behavioral cognitive models...</div>
+            </div>
+          </div>
+
+          <!-- Section 3: Leak Velocity & Anomaly Detection Table -->
+          <div class="anomalies-container">
+            <div class="section-title-row">
+              <h2 class="section-title">🔍 Process Leak Velocity (dRAM/dt) & Z-Score Anomalies</h2>
+              <span class="section-subtitle">Real-time linear regression across rolling time window</span>
+            </div>
+            <div class="table-scroll-container">
+              <table class="fluent-table" id="anomalies-table">
+                <thead>
+                  <tr>
+                    <th>Process / Tab Name</th>
+                    <th>PID</th>
+                    <th>Working Set</th>
+                    <th>Leak Velocity (dRAM/dt)</th>
+                    <th>Rolling Z-Score</th>
+                    <th>Behavioral Archetype</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="anomalies-table-body">
+                  <tr><td colspan="7" class="loading-cell">Analyzing streaming process telemetry...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 5: FOCUS COPILOT & EXECUTIVE ASSISTANT -->
+      <section id="view-copilot" class="view-panel">
+        <div class="copilot-container">
+          <!-- ZEN MODE BANNER -->
+          <div id="zen-mode-banner" class="zen-mode-banner" style="display: none;">
+            <span class="zen-icon">🧘</span>
+            <div class="zen-info">
+              <span class="zen-title" id="zen-mode-title">Deep Focus Mode Active</span>
+              <span class="zen-subtitle" id="zen-mode-subtitle">Alerts suppressed. --m elapsed.</span>
+            </div>
+          </div>
+
+          <!-- EVENING CLOSURE BANNER -->
+          <div id="closure-banner" class="briefing-hero-card" style="display: none; background: linear-gradient(135deg, rgba(30,58,138,0.4) 0%, rgba(30,27,75,0.4) 100%); border: 1px solid rgba(59,130,246,0.3); margin-bottom: 16px;">
+            <div class="briefing-left">
+              <div class="briefing-tag" style="color: #60a5fa;">🌙 EVENING SESSION CLOSURE</div>
+              <div id="closure-headline" class="briefing-headline" style="color: #bfdbfe;">Generating end of day summary...</div>
+              <div class="briefing-chips" style="margin-top: 12px;">
+                <span class="chip-item">🏆 <strong id="closure-badge">...</strong></span>
+                <span class="chip-item">🧘 Flow: <strong id="closure-flow">...</strong></span>
+                <span class="chip-item">💾 Reclaimed: <strong id="closure-reclaimed">...</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- EXECUTIVE MORNING & SESSION START BRIEFING -->
+          <div id="copilot-briefing-card" class="briefing-hero-card">
+            <div class="briefing-left">
+              <div class="briefing-tag">☀️ EXECUTIVE ORIENTATION BRIEFING (Behavioral Knowledge Engine)</div>
+              <div id="briefing-headline" class="briefing-headline">Consolidating executive briefing...</div>
+              <div id="briefing-summary" class="briefing-sub">Longitudinal behavioral models consolidating...</div>
+              <div class="briefing-chips">
+                <span class="chip-item">🎯 Archetype: <strong id="briefing-archetype">Balanced Flow</strong></span>
+                <span class="chip-item">⚡ Peak Window: <strong id="briefing-peak">09:30 – 11:30</strong></span>
+                <span class="chip-item">🧠 Adaptive Cap: <strong id="briefing-cap">12 tabs (personalized)</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- DEVELOPER RESUME ANCHOR ("WHERE WAS I?") -->
+          <div id="copilot-anchor-card" class="anchor-hero-card">
+            <div class="anchor-hero-left">
+              <div class="anchor-badge">⚓ WHERE YOU LEFT OFF (Orientation Anchor)</div>
+              <div id="anchor-summary-1" class="anchor-title">Scanning active Git repository & workspace...</div>
+              <div id="anchor-summary-2" class="anchor-subtitle">Active task context</div>
+            </div>
+            <div class="anchor-hero-actions">
+              <a id="btn-anchor-launch" href="#" class="fluent-btn btn-primary hero-launch-btn" target="_blank">🚀 Open in IDE</a>
+              <button id="btn-stash-rabbithole" class="fluent-btn btn-rabbit-hero">🐇 Stash Rabbit Hole</button>
+            </div>
+          </div>
+
+          <!-- TOP KPI ROW -->
+          <div class="copilot-kpi-row">
+            <div class="copilot-kpi-card">
+              <span class="kpi-title">Context Drift Index</span>
+              <div class="kpi-metric-row">
+                <span class="kpi-value" id="copilot-drift-val">0.00</span>
+                <span class="badge badge-success" id="copilot-drift-badge">Calm Flow</span>
+              </div>
+              <span class="kpi-subtext" id="copilot-switch-rate">0.0 context switches / min</span>
+            </div>
+
+            <div class="copilot-kpi-card">
+              <span class="kpi-title">Cognitive Working Set</span>
+              <div class="kpi-metric-row">
+                <span class="kpi-value" id="copilot-tabs-val">0</span>
+                <span class="kpi-limit" id="copilot-cap-label">/ 12 Soft Cap</span>
+              </div>
+              <div class="cap-progress-bar">
+                <div class="cap-fill" id="copilot-cap-fill" style="width: 0%"></div>
+              </div>
+              <span class="kpi-subtext" id="copilot-cap-subtext">Operating within comfortable mental bandwidth</span>
+            </div>
+
+            <div class="copilot-kpi-card highlight-card">
+              <span class="kpi-title">🎉 Micro-Closure Celebration</span>
+              <div class="kpi-metric-row">
+                <span class="kpi-value highlight-value" id="copilot-reclaimed-val">0.0 MB</span>
+              </div>
+              <span class="kpi-subtext" id="copilot-stashed-count">0 tasks cleanly parked & finished</span>
+              <button id="btn-copilot-park-hero" class="fluent-btn btn-primary hero-btn">
+                <span>📦 Park All Inactive Context</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Section 1: Forgotten Loops & Stale Tasks -->
+          <div class="copilot-section">
+            <div class="section-title-row">
+              <div>
+                <h2 class="section-title">⏳ Forgotten Loops & Abandoned Tasks (>90m untouched)</h2>
+                <span class="section-subtitle">Empathetic triage prompts to close dangling mental threads and free RAM</span>
+              </div>
+              <span class="section-badge" id="forgotten-count-badge">0 Open Loops</span>
+            </div>
+            <div class="forgotten-loops-grid" id="forgotten-loops-grid">
+              <div class="rec-empty-card">All current tabs and tasks are actively maintained. High focus flow state! 🚀</div>
+            </div>
+          </div>
+
+          <!-- Section 2: Stashed Sessions History -->
+          <div class="copilot-section">
+            <div class="section-title-row">
+              <div>
+                <h2 class="section-title">📦 Stashed Contexts & Saved Sessions (SQLite Archive)</h2>
+                <span class="section-subtitle">Restore any previously parked research session with zero fear of losing state</span>
+              </div>
+              <button id="btn-refresh-stashes" class="fluent-btn">🔄 Refresh Stashes</button>
+            </div>
+            <div class="stashes-list" id="stashes-list">
+              <div class="rec-empty-card">No stashed sessions yet. Press Ctrl+Shift+F anytime to park your open tabs!</div>
+            </div>
+          </div>
+
+          <!-- Section 3: Clipboard Telemetry & Safety Vault -->
+          <div class="copilot-section">
+            <div class="section-title-row">
+              <div>
+                <h2 class="section-title">📋 Clipboard Telemetry & Safety Vault (Non-Polling, Secret-Safe)</h2>
+                <span class="section-subtitle">Auto-classified code, error traces, and lost buffers with automatic secret redaction</span>
+              </div>
+              <button id="btn-refresh-clipboard" class="fluent-btn">🔄 Refresh Vault</button>
+            </div>
+            <div class="clipboard-vault-list" id="clipboard-vault-list">
+              <div class="rec-empty-card">No clipboard history recorded yet. Copy any code, error, or command to see it here!</div>
+            </div>
+          </div>
+
+          <!-- Section 4: Tab Lifecycles & Mortality Analytics -->
+          <div class="copilot-section">
+            <div class="section-title-row">
+              <div>
+                <h2 class="section-title">📊 Tab Lifecycles, Mortality & Graveyard Analytics (CDP Telemetry)</h2>
+                <span class="section-subtitle">Measured tab shelf-life, intentional vs abandoned closure causes, and context decay thresholds</span>
+              </div>
+              <button id="btn-refresh-tab-analytics" class="fluent-btn">🔄 Refresh Analytics</button>
+            </div>
+            <div class="tab-analytics-grid">
+              <div class="analytics-stat-card">
+                <span class="stat-label">Graveyard Ratio</span>
+                <span class="stat-value text-warning" id="tab-graveyard-ratio">--%</span>
+                <span class="stat-sub">Tabs abandoned or discarded by browser memory saver</span>
+              </div>
+              <div class="analytics-stat-card">
+                <span class="stat-label">Median Shelf-Life</span>
+                <span class="stat-value" id="tab-median-shelf">-- m</span>
+                <span class="stat-sub">50% of tabs closed within this duration</span>
+              </div>
+              <div class="analytics-stat-card">
+                <span class="stat-label">Context Decay Threshold (τ)</span>
+                <span class="stat-value text-accent" id="tab-decay-tau">-- m</span>
+                <span class="stat-sub">Idle point beyond which return rate drops &lt; 5%</span>
+              </div>
+              <div class="analytics-stat-card">
+                <span class="stat-label">Mortality Curve</span>
+                <div class="mortality-bars">
+                  <div class="mort-row"><span>&lt; 2m (Quick lookup):</span><strong id="mort-quick">--%</strong></div>
+                  <div class="mort-row"><span>2-30m (Active task):</span><strong id="mort-active">--%</strong></div>
+                  <div class="mort-row"><span>&gt; 30m (Anchor tab):</span><strong id="mort-anchor">--%</strong></div>
+                </div>
+              </div>
+            </div>
+            <div class="domain-archetype-row">
+              <div class="domain-col">
+                <h3 class="domain-col-title">⚓ Anchor Work Domains</h3>
+                <div id="anchor-domains-list" class="domain-pill-list">
+                  <span class="domain-pill">github.com</span>
+                  <span class="domain-pill">docs.rs</span>
+                  <span class="domain-pill">localhost</span>
+                </div>
+              </div>
+              <div class="domain-col">
+                <h3 class="domain-col-title">⚡ Ephemeral Lookup Domains</h3>
+                <div id="ephemeral-domains-list" class="domain-pill-list">
+                  <span class="domain-pill">google.com</span>
+                  <span class="domain-pill">stackoverflow.com</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 5: Windows File Explorer Workspaces -->
+          <div class="copilot-section">
+            <div class="section-title-row">
+              <div>
+                <h2 class="section-title">📁 Windows File Explorer Workspaces & Folders (COM & UIA)</h2>
+                <span class="section-subtitle">Real-time explorer.exe windows, active project directories, and forgotten folder tabs</span>
+              </div>
+              <button id="btn-refresh-explorer" class="fluent-btn">🔄 Refresh Folders</button>
+            </div>
+            <div class="explorer-workspaces-list" id="explorer-workspaces-list">
+              <div class="rec-empty-card">Scanning active Windows File Explorer windows and tabs...</div>
             </div>
           </div>
         </div>

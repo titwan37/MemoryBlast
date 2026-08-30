@@ -108,6 +108,53 @@ pub fn handle_key_event(
             app.trigger_kill_modal(&flattened);
         }
 
+        // View switching
+        KeyCode::Tab => {
+            app.current_view = match app.current_view {
+                crate::ui::app::TuiView::Processes => crate::ui::app::TuiView::Treemap,
+                crate::ui::app::TuiView::Treemap => crate::ui::app::TuiView::Optimizer,
+                crate::ui::app::TuiView::Optimizer => crate::ui::app::TuiView::Processes,
+            };
+            let name = match app.current_view {
+                crate::ui::app::TuiView::Processes => "Processes Table",
+                crate::ui::app::TuiView::Treemap => "Squarified Treemap",
+                crate::ui::app::TuiView::Optimizer => "Cognitive Optimizer & Anomaly Detector",
+            };
+            app.set_status(format!("Switched view: {name}"));
+        }
+        KeyCode::Char('m') | KeyCode::Char('M') => {
+            app.current_view = crate::ui::app::TuiView::Treemap;
+            app.set_status("Switched view: Squarified Treemap".to_string());
+        }
+        KeyCode::Char('o') | KeyCode::Char('O') => {
+            app.current_view = crate::ui::app::TuiView::Optimizer;
+            app.set_status("Switched view: Cognitive Optimizer & Anomaly Detector".to_string());
+        }
+        KeyCode::Char('p') | KeyCode::Char('P') => {
+            app.current_view = crate::ui::app::TuiView::Processes;
+            app.set_status("Switched view: Processes Table".to_string());
+        }
+
+        // Working set trimming (EmptyWorkingSet)
+        KeyCode::Char('x') | KeyCode::Char('X') => {
+            if let Some(row) = flattened.get(app.selected_index) {
+                let pid = row.item.pid;
+                let name = row.item.name.clone();
+                match crate::optimizer::OptimizationAssistant::trim_working_set(pid) {
+                    Ok(_) => app.set_status(format!("✂️ Trimmed working set for {name} (PID: {pid})")),
+                    Err(e) => app.set_status(format!("Failed to trim working set: {e}")),
+                }
+            }
+        }
+
+        // Park current context (Focus Copilot: Freeze/Stash tabs)
+        KeyCode::Char('z') | KeyCode::Char('Z') => {
+            tokio::spawn(async {
+                let _ = crate::copilot::park_current_context(&[], &[]).await;
+            });
+            app.set_status("📦 Focus Copilot: Parked active browser tabs & freed RAM!".to_string());
+        }
+
         // Focus tab in browser
         KeyCode::Char('f') | KeyCode::Char('F') => {
             if let Some(row) = flattened.get(app.selected_index) {

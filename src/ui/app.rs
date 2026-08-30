@@ -17,8 +17,16 @@ pub struct FlattenedRow {
     pub total_group_cpu_percent: f32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TuiView {
+    Processes,
+    Treemap,
+    Optimizer,
+}
+
 pub struct App {
     pub snapshot: Option<SystemSnapshot>,
+    pub current_view: TuiView,
     pub selected_index: usize,
     pub scroll_offset: usize,
     pub expanded_pids: HashSet<u32>,
@@ -44,6 +52,7 @@ impl App {
 
         Self {
             snapshot: None,
+            current_view: TuiView::Processes,
             selected_index: 0,
             scroll_offset: 0,
             expanded_pids: HashSet::new(),

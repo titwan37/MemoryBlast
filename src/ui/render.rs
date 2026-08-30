@@ -34,7 +34,12 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         render_search_bar(frame, app, chunks[1], flattened.len());
     }
 
-    render_process_table(frame, app, chunks[2], &flattened);
+    match app.current_view {
+        crate::ui::app::TuiView::Processes => render_process_table(frame, app, chunks[2], &flattened),
+        crate::ui::app::TuiView::Treemap => render_treemap_view(frame, app, chunks[2]),
+        crate::ui::app::TuiView::Optimizer => render_optimizer_view(frame, app, chunks[2]),
+    }
+
     render_footer(frame, app, chunks[3]);
 
     if let Some((pid, name)) = &app.pending_kill_pid {
@@ -382,21 +387,29 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
 
     let rate_ms = app.current_refresh_rate().as_millis();
 
+    let view_badge = match app.current_view {
+        crate::ui::app::TuiView::Processes => Span::styled(" [Tab] View: PROCESSES ", Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD)),
+        crate::ui::app::TuiView::Treemap => Span::styled(" [Tab] View: TREEMAP ", Style::default().fg(Color::Black).bg(Color::Magenta).add_modifier(Modifier::BOLD)),
+        crate::ui::app::TuiView::Optimizer => Span::styled(" [Tab] View: AI OPTIMIZER ", Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)),
+    };
+
     let shortcuts = Line::from(vec![
+        view_badge,
+        Span::raw("  "),
+        Span::styled(" [x] ", Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::raw("Trim RAM  "),
+        Span::styled(" [z] ", Style::default().fg(Color::Black).bg(Color::LightGreen).add_modifier(Modifier::BOLD)),
+        Span::raw("Park Tabs  "),
+        Span::styled(" [f] ", Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::raw("Focus  "),
         Span::styled(" [/] ", Style::default().fg(Color::Black).bg(Color::White).add_modifier(Modifier::BOLD)),
         Span::raw("Search  "),
         Span::styled(" [s] ", Style::default().fg(Color::Black).bg(Color::White).add_modifier(Modifier::BOLD)),
         Span::raw("Sort  "),
-        Span::styled(" [Space/Enter] ", Style::default().fg(Color::Black).bg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::raw("Expand  "),
-        Span::styled(" [f] ", Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)),
-        Span::raw("Focus  "),
-        Span::styled(" [t] ", Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)),
-        Span::raw("Detect Tabs  "),
         Span::styled(" [k] ", Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD)),
         Span::raw("Kill  "),
         Span::styled(" [+/-] ", Style::default().fg(Color::Black).bg(Color::White).add_modifier(Modifier::BOLD)),
-        Span::raw(format!("Rate ({}ms)  ", rate_ms)),
+        Span::raw(format!("{}ms  ", rate_ms)),
         Span::styled(" [q] ", Style::default().fg(Color::Black).bg(Color::White).add_modifier(Modifier::BOLD)),
         Span::raw("Quit"),
         status_span,
@@ -404,6 +417,205 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
 
     let paragraph = Paragraph::new(shortcuts).alignment(Alignment::Left);
     frame.render_widget(paragraph, area);
+}
+
+fn render_treemap_view(frame: &mut Frame, app: &App, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::Magenta))
+        .title(Span::styled(
+            " 🗺️ Squarified Treemap — Memory Space Decomposition (Bruls, Huizing, van Wijk) ",
+            Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+        ));
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    if let Some(snapshot) = &app.snapshot {
+        let treemap = crate::treemap::build_treemap_from_snapshot(
+            snapshot,
+            inner.width as f64,
+            inner.height as f64,
+        );
+
+        let mut lines = Vec::new();
+        lines.push(Line::from(vec![
+            Span::styled(" System Memory Footprint: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(format_bytes(snapshot.mem_stats.used_physical_bytes), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw(" / "),
+            Span::styled(format_bytes(snapshot.mem_stats.total_physical_bytes), Style::default().fg(Color::Cyan)),
+            Span::raw("  (Hierarchical Clusters below)"),
+        ]));
+        lines.push(Line::from(""));
+
+        for child in &treemap.children {
+            let pct = if snapshot.mem_stats.used_physical_bytes > 0 {
+                (child.value_bytes as f64 / snapshot.mem_stats.used_physical_bytes as f64) * 100.0
+            } else {
+                0.0
+            };
+
+            let bar_len = (pct / 2.0).min(40.0) as usize;
+            let bar: String = "█".repeat(bar_len);
+
+            let (cat_color, cat_icon) = match child.category.as_str() {
+                "browser_cluster" => (Color::Blue, "🌐"),
+                "process" => (Color::Yellow, "⚡"),
+                _ => (Color::Gray, "📦"),
+            };
+
+            lines.push(Line::from(vec![
+                Span::styled(format!(" {cat_icon} {:<32} ", child.title), Style::default().fg(cat_color).add_modifier(Modifier::BOLD)),
+                Span::styled(format!("{:>10} ", child.formatted_size), Style::default().fg(Color::White)),
+                Span::styled(format!("({:>5.1}%) ", pct), Style::default().fg(Color::DarkGray)),
+                Span::styled(bar, Style::default().fg(cat_color)),
+            ]));
+
+            // If browser cluster, show top 3 child tabs/processes
+            for sub in child.children.iter().take(3) {
+                let sub_pct = if child.value_bytes > 0 {
+                    (sub.value_bytes as f64 / child.value_bytes as f64) * 100.0
+                } else {
+                    0.0
+                };
+                let role_icon = match sub.category.as_str() {
+                    "tab" => "📄",
+                    "gpu" => "⚡",
+                    "extension" => "🧩",
+                    _ => "🔹",
+                };
+                lines.push(Line::from(vec![
+                    Span::raw(format!("     {role_icon} {:<36} ", sub.title)),
+                    Span::styled(format!("{:>9} ", sub.formatted_size), Style::default().fg(Color::Cyan)),
+                    Span::styled(format!("({:.1}%)", sub_pct), Style::default().fg(Color::DarkGray)),
+                ]));
+            }
+        }
+
+        let p = Paragraph::new(lines);
+        frame.render_widget(p, inner);
+    } else {
+        let p = Paragraph::new("Loading memory treemap telemetry...").alignment(Alignment::Center);
+        frame.render_widget(p, inner);
+    }
+}
+
+fn render_optimizer_view(frame: &mut Frame, app: &App, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(Color::Yellow))
+        .title(Span::styled(
+            " 🧠 Cognitive Knowledge Engine & Proactive Memory Optimizer ",
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        ));
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    if let Some(snapshot) = &app.snapshot {
+        let mut learner = crate::knowledge::CognitiveLearner::new();
+        let empty_map = std::collections::HashMap::new();
+        let profiles = learner.evaluate_snapshot(&snapshot.processes, &empty_map, snapshot.timestamp_ms);
+
+        let forecast = crate::knowledge::CognitiveLearner::forecast_oom(
+            snapshot.mem_stats.committed_bytes,
+            snapshot.mem_stats.total_page_file_bytes,
+            0.0,
+        );
+
+        let recommendations = crate::optimizer::OptimizationAssistant::generate_recommendations(
+            &profiles,
+            &[],
+            &forecast,
+        );
+
+        let mut lines = Vec::new();
+
+        // Executive Orientation Briefing
+        let brief = crate::knowledge::ExecutiveBriefing::generate();
+        lines.push(Line::from(vec![
+            Span::styled(" [Orientation Briefing]: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled(&brief.headline, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        ]));
+        lines.push(Line::from(vec![
+            Span::raw("  "),
+            Span::styled(&brief.yesterday_summary, Style::default().fg(Color::Gray)),
+        ]));
+        lines.push(Line::from(vec![
+            Span::raw("  Peak Focus: "),
+            Span::styled(&brief.peak_focus_window, Style::default().fg(Color::Cyan)),
+            Span::raw("  |  Adaptive Soft Cap: "),
+            Span::styled(format!("{} tabs", brief.dynamic_working_memory_cap), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw("  |  Archetype: "),
+            Span::styled(&brief.primary_archetype, Style::default().fg(Color::Magenta)),
+        ]));
+        lines.push(Line::from(""));
+
+        // OOM Forecasting Header
+        let risk_color = match forecast.risk_level {
+            "CRITICAL" => Color::Red,
+            "WARNING" => Color::Yellow,
+            _ => Color::Green,
+        };
+
+        lines.push(Line::from(vec![
+            Span::styled(" [Host Stability Status]: ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(format!(" {} ", forecast.risk_level), Style::default().fg(Color::Black).bg(risk_color).add_modifier(Modifier::BOLD)),
+            Span::raw(format!("  Commit Load: {:.1}%  |  Limit: {}  |  In Use: {}",
+                forecast.current_commit_pct,
+                format_bytes(snapshot.mem_stats.total_page_file_bytes),
+                format_bytes(snapshot.mem_stats.used_physical_bytes),
+            )),
+        ]));
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            " 💡 Proactive Optimization Recommendations & Idle Tab Reclamations: ",
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        )));
+        lines.push(Line::from(""));
+
+        if recommendations.is_empty() {
+            lines.push(Line::from("  ✨ System memory usage is optimal. No anomalous leaks or stale background tabs detected."));
+        } else {
+            for (idx, rec) in recommendations.iter().take(6).enumerate() {
+                let urgency_color = match rec.urgency {
+                    "CRITICAL" | "URGENT" => Color::Red,
+                    "RECOMMENDED" => Color::Yellow,
+                    _ => Color::Cyan,
+                };
+
+                lines.push(Line::from(vec![
+                    Span::styled(format!("  {}. [", idx + 1), Style::default().fg(Color::DarkGray)),
+                    Span::styled(rec.urgency, Style::default().fg(urgency_color).add_modifier(Modifier::BOLD)),
+                    Span::styled("] ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(&rec.title, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                    Span::styled(format!(" (PID: {})", rec.target_pid), Style::default().fg(Color::DarkGray)),
+                ]));
+
+                lines.push(Line::from(vec![
+                    Span::raw("     "),
+                    Span::styled(&rec.description, Style::default().fg(Color::Gray)),
+                ]));
+
+                lines.push(Line::from(vec![
+                    Span::raw("     Potential RAM reclaim: "),
+                    Span::styled(format_bytes(rec.potential_reclaim_bytes), Style::default().fg(Color::Green)),
+                    Span::raw("  — Press "),
+                    Span::styled(" [x] ", Style::default().fg(Color::Black).bg(Color::Cyan)),
+                    Span::raw(" on process to trim working set"),
+                ]));
+                lines.push(Line::from(""));
+            }
+        }
+
+        let p = Paragraph::new(lines);
+        frame.render_widget(p, inner);
+    } else {
+        let p = Paragraph::new("Evaluating behavioral cognitive models...").alignment(Alignment::Center);
+        frame.render_widget(p, inner);
+    }
 }
 
 fn render_kill_modal(frame: &mut Frame, pid: u32, name: &str, area: Rect) {

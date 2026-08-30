@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::mem::{size_of, zeroed};
 use std::time::Instant;
@@ -20,7 +20,7 @@ use crate::chromium::{
     parse_chromium_command_line, ChromiumProcessType,
 };
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessItem {
     pub pid: u32,
     pub ppid: u32,

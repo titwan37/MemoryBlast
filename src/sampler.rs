@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -12,12 +12,12 @@ use crate::chromium::{
 use crate::proc::{ProcessItem, ProcessScanner};
 use crate::sys::{get_system_memory_stats, SystemMemoryStats};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemSnapshot {
     pub mem_stats: SystemMemoryStats,
     pub processes: Vec<ProcessItem>,
     pub timestamp_ms: u64,
-    #[serde(skip)]
+    #[serde(skip, default = "Instant::now")]
     pub timestamp: Instant,
 }
 

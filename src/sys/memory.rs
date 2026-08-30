@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::mem::{size_of, zeroed};
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Security::{
@@ -9,7 +9,7 @@ use windows::Win32::System::SystemInformation::{
 };
 use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SystemMemoryStats {
     pub total_physical_bytes: u64,
     pub available_physical_bytes: u64,
