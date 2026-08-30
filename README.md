@@ -40,6 +40,7 @@ MemoryBlast features **dual interfaces**:
 - Full console interface powered by `ratatui` and `crossterm`.
 - Physical RAM and Commit gauges with adaptive color grading.
 - Tree expand/collapse (`Space`/`Enter`), sorting cycles (`s`), search (`/`), and kill (`k`).
+- Multi-View System: Toggle between Processes Table, Squarified Treemap, and AI Optimizer views using the `[Tab]` key.
 
 ### 3. Low-Level Win32 & Decoupled 2-Tier Sampling Engine
 - **Tier 1 (High-Frequency Memory Loop — 500ms)**:
@@ -51,6 +52,41 @@ MemoryBlast features **dual interfaces**:
   - Populates tab names asynchronously without delaying memory statistics.
 - **Precise CPU Delta Tracking**: Cumulative process and tree CPU % using `GetProcessTimes`.
 - **Graceful Privilege Detection**: Clearly displays `[ADMIN]` vs `[STANDARD USER]` and safely handles restricted system services.
+
+### 4. High-Throughput Columnar Telemetry & Polars Pipeline
+- **In-Memory Columnar DataFrames**: Uses `polars` for fast representation of Tier-1 metrics and Tier-2 metadata.
+- **Rolling Ephemeral Buffers**: Tracks historical system commit charges, OOM pressure, and pool allocations.
+- **Parquet Export**: One-click export of time-series telemetry logs to Snappy-compressed Apache Parquet files (`POST /api/export-parquet`).
+
+### 5. Interactive Squarified Treemap Visualization
+- **Dynamic Geometry**: Pure Rust squarified algorithm for hierarchical memory mapping.
+- **Clustered Hierarchy**: Organizes memory blocks logically from `Host System` ➔ `App Clusters` ➔ `Sub-processes / Tabs`.
+- **Cross-UI Support**: Available as a dedicated view in both the Fluent GUI and the Terminal TUI.
+
+### 6. Dynamic Data Science Engine & Statistical Anomaly Detection
+- **Real-time Memory Leak Detection**: Calculates process memory leak velocity in MB/min using rolling linear regression slopes.
+- **Z-Score Anomaly Detection**: Applies statistical anomaly scoring to identify unusual memory spikes.
+- **Categorization**: Classifies behaviors as `Normal`, `ModerateGrowth`, `RapidSpike`, or `SustainedLeak`.
+
+### 7. Behavioral Knowledge Management & Cognitive Learner
+- **Semantic Lifecycle Clustering**: Automatically classifies tabs and processes into *Active Task Focus*, *Stale Background Tab*, *Memory Leak Suspect*, *Periodic Background Daemon*, or *Essential System Service*.
+- **Embedded SQLite Store**: Persists behavior archetypes, daily footprints, and optimization event logs.
+- **OOM Forecasting**: Local online linear regressor computes commit percentages and estimates time-to-limit exhaustion.
+
+### 8. Proactive Optimization Assistant & Working Set Trimming
+- **Urgency-Ranked Recommendations**: Generates actionable suggestions (`INFO`, `RECOMMENDED`, `URGENT`) to manage idle tabs and leaking processes.
+- **Win32 Memory Reclamation**: Safely purges resident pages to the standby pool using `K32EmptyWorkingSet` with zero process interruption.
+- **One-Click Triggers**: Quickly trim RAM via the UI titlebar, recommendation cards, or TUI shortcuts (`[x]`).
+
+### 9. Executive Function & Focus Copilot (ADH Assistant)
+A suite of tools designed to prevent task sprawl, context fragmentation, and tab hoarding.
+- **Exocortex Cognitive Engine & Flow Mode**: Correlates drift severity, clipboard frustration, and context switching into a unified `CognitiveState`. "Zen Mode" suppresses non-urgent UI alerts during deep focus (>45 mins).
+- **Neuro-Ergonomic UI (Synaptic Pulse)**: Dynamic CSS theming that shifts UI hues and animations in real-time based on the user's inferred cognitive load (Calm, Focus, Drifting, Overloaded).
+- **Context Parking (`Ctrl+Shift+F`)**: Press `Ctrl+Shift+F` globally to instantly park the current context and freeze open tabs. Generates a Markdown checklist before closing them to free RAM, with 1-Click Rehydration.
+- **Chromium Tab & File Explorer Lifecycle Tracker**: Records opening/closing timestamps, tracks active folder windows, calculates shelf-life duration, and synthesizes long-term utility patterns (Graveyard Ratio, Ephemeral vs. Anchor domains).
+- **Morning Briefing & Evening Closure**:
+  - `Morning Briefing`: Offers a daily "Where You Left Off" orientation summary.
+  - `Evening Closure`: Auto-generates a daily session wrap-up summarizing reclaimed memory and resolved tabs.
 
 ---
 
