@@ -185,6 +185,7 @@ fn render_process_table(
         Cell::from(Span::styled("Working Set", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
         Cell::from(Span::styled("% RAM", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
         Cell::from(Span::styled("CPU %", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
+        Cell::from(Span::styled("GPU %", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
     ];
 
     let header = Row::new(header_cells)
@@ -214,10 +215,11 @@ fn render_process_table(
 
     let widths = [
         Constraint::Length(8),
-        Constraint::Min(32),
-        Constraint::Length(22),
-        Constraint::Length(14),
-        Constraint::Length(14),
+        Constraint::Min(28),
+        Constraint::Length(20),
+        Constraint::Length(13),
+        Constraint::Length(13),
+        Constraint::Length(8),
         Constraint::Length(8),
         Constraint::Length(8),
     ];
@@ -357,6 +359,23 @@ fn create_table_row<'a>(row: &'a FlattenedRow, is_selected: bool) -> Row<'a> {
     };
     let cpu_span = Span::styled(format!("{cpu_val:.1}%"), Style::default().fg(cpu_color));
 
+    // GPU %
+    let gpu_val = if row.depth == 0 && row.is_expandable {
+        row.total_group_gpu_percent
+    } else {
+        item.gpu_percent
+    };
+    let gpu_color = if gpu_val > 50.0 {
+        Color::Red
+    } else if gpu_val > 10.0 {
+        Color::LightYellow
+    } else if gpu_val > 0.05 {
+        Color::Green
+    } else {
+        Color::DarkGray
+    };
+    let gpu_span = Span::styled(format!("{gpu_val:.1}%"), Style::default().fg(gpu_color));
+
     Row::new(vec![
         Cell::from(pid_span),
         Cell::from(Line::from(name_spans)),
@@ -365,6 +384,7 @@ fn create_table_row<'a>(row: &'a FlattenedRow, is_selected: bool) -> Row<'a> {
         Cell::from(ws_span),
         Cell::from(mem_pct_span),
         Cell::from(cpu_span),
+        Cell::from(gpu_span),
     ])
     .style(base_style)
     .height(1)

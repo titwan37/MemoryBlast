@@ -38,17 +38,21 @@ MemoryBlast features **dual interfaces**:
 
 ### 2. Terminal TUI Dashboard (`--cli`)
 - Full console interface powered by `ratatui` and `crossterm`.
+- **Per-Process GPU & CPU Telemetry**: Real-time `GPU %` and `CPU %` columns with multi-threshold color grading and tree-level aggregation.
 - Physical RAM and Commit gauges with adaptive color grading.
 - Tree expand/collapse (`Space`/`Enter`), sorting cycles (`s`), search (`/`), and kill (`k`).
 
-### 3. Low-Level Win32 & Decoupled 2-Tier Sampling Engine
+### 3. Low-Level Win32 & Decoupled 3-Tier Sampling Engine
 - **Tier 1 (High-Frequency Memory Loop — 500ms)**:
   - Queries `GlobalMemoryStatusEx`, `SYSTEM_PERFORMANCE_INFORMATION`, and `K32GetProcessMemoryInfo`.
   - Dispatches process snapshots instantly (<10ms execution time) with zero blocking or UI stuttering.
-  - Takes instantaneous $\mathcal{O}(1)$ reads from the shared title cache.
+  - Takes instantaneous $\mathcal{O}(1)$ reads from the shared title and GPU caches.
 - **Tier 2 (Asynchronous Title Enrichment Worker — Background)**:
   - Isolated background pipeline discovering open Chromium tab titles via **Windows UI Automation (`IUIAutomation`)** and CDP.
   - Populates tab names asynchronously without delaying memory statistics.
+- **Tier 3 (Background GPU Engine Telemetry Worker — Windows PDH)**:
+  - Collects real-time per-process GPU engine telemetry via Windows Performance Data Helper (`\GPU Engine(*)\Utilization Percentage`).
+  - Measures combined load across 3D, Compute (CUDA / DirectCompute), Copy, and VideoDecode engines with zero impact on the primary memory loop.
 - **Precise CPU Delta Tracking**: Cumulative process and tree CPU % using `GetProcessTimes`.
 - **Graceful Privilege Detection**: Clearly displays `[ADMIN]` vs `[STANDARD USER]` and safely handles restricted system services.
 
@@ -87,7 +91,7 @@ or:
 | `Space` or `Enter` | Expand / Collapse process tree node |
 | `/` | Enter Search / Filter mode |
 | `Esc` | Clear search / Cancel dialog |
-| `s` | Cycle sort criteria (RAM, Working Set, CPU, PID, Name) |
+| `s` | Cycle sort criteria (Private RAM, Working Set, CPU %, GPU %, PID, Name) |
 | `f` | Focus browser window & switch to selected tab |
 | `k` | Terminate selected process (opens confirmation dialog) |
 | `+` / `=` | Increase refresh rate (250ms, 500ms, 1s, 2s, 5s) |

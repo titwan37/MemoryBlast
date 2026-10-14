@@ -6,6 +6,7 @@ MemoryBlast is a high-performance, ultra-low-overhead process manager and Intell
 
 ## 1. Core Process & System Monitoring
 * **High-Performance Rust Backend:** Ultra-low CPU overhead (<0.5%) asynchronous sampling loop using native Win32/NT APIs (`GlobalMemoryStatusEx`, `NtQueryInformationProcess`, `K32GetProcessMemoryInfo`).
+* **Real-time Per-Process GPU Telemetry:** Captures per-process GPU utilization percentages via the Windows Performance Data Helper (PDH) subsystem querying `\GPU Engine(*)\Utilization Percentage` across all engines (3D, Compute/CUDA/DirectCompute, Copy, and VideoDecode) with tree-level aggregation.
 * **Deep Chromium Inspection:** Natively resolves processes for Chromium-based browsers (Chrome, Edge, Brave, Arc, Opera, Vivaldi). 
 * **Tab Title Resolution:** Identifies exact tab titles via Windows UI Automation, Chrome DevTools Protocol (CDP), and Window Handle Enumeration without requiring browser restarts.
 * **Process Categorization:** Differentiates between Browser Core, GPU Processes, Network Services, Audio Services, Extensions, and individual Renderer Tabs.
@@ -21,8 +22,9 @@ MemoryBlast provides dual interfaces to match any workflow:
 
 ### Terminal TUI Dashboard
 * **Ultra-Fast Ratatui Console:** Keyboard-driven, zero-distraction terminal UI.
+* **Real-time CPU & GPU Performance Columns:** Dedicated `CPU %` and `GPU %` columns with multi-threshold color coding (green, yellow, red, muted gray) and hierarchical child-process rollup.
 * **Multi-View System:** Toggle between Processes Table, Squarified Treemap, and AI Optimizer views using the `[Tab]` key.
-* **Rich Keybindings:** Quick filters (`/`), sorting (`s`), trimming RAM (`x`), parking context (`z`), and process killing (`k`).
+* **Rich Keybindings:** Quick filters (`/`), sorting (`s` cycling through RAM, Working Set, CPU %, GPU %, PID, Name), trimming RAM (`x`), parking context (`z`), and process killing (`k`).
 
 ## 3. High-Throughput Columnar Telemetry & Polars Pipeline
 * **In-Memory Columnar DataFrames:** Uses `polars` for fast representation of Tier-1 metrics (Working Set, Private Bytes, CPU %) and Tier-2 metadata (Chromium flags, Tab titles).
