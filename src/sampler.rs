@@ -10,7 +10,7 @@ use crate::chromium::{
     get_browser_tab_titles_via_uia, get_window_titles_by_pid, query_cdp_tabs,
 };
 use crate::proc::{ProcessItem, ProcessScanner};
-use crate::sys::{get_system_memory_stats, SystemMemoryStats};
+use crate::sys::{get_system_memory_stats, GpuSampler, SystemMemoryStats};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemSnapshot {
@@ -27,18 +27,21 @@ pub enum SamplerCommand {
     RetriggerTabDetection,
 }
 
-/// Spawns the decoupled 2-tier process sampling engine:
+/// Spawns the decoupled multi-tier process sampling engine:
 /// Tier 1: Ultra-fast 500ms memory & CPU loop (<10ms execution time, zero blocking).
 /// Tier 2: Async background title enrichment worker (populates tab titles without stalling memory updates).
+/// Tier 3: Background GPU engine telemetry sampler via Windows PDH.
 pub fn spawn_sampler(
     snapshot_tx: Sender<SystemSnapshot>,
     cmd_rx: Receiver<SamplerCommand>,
     mut interval_duration: Duration,
 ) {
-    // Shared thread-safe caches for titles
+    // Shared thread-safe caches for titles and GPU metrics
     let window_titles_cache: Arc<RwLock<HashMap<u32, Vec<String>>>> =
         Arc::new(RwLock::new(HashMap::new()));
     let tab_titles_cache: Arc<RwLock<HashMap<u32, Vec<String>>>> =
+        Arc::new(RwLock::new(HashMap::new()));
+    let gpu_usage_cache: Arc<RwLock<HashMap<u32, f32>>> =
         Arc::new(RwLock::new(HashMap::new()));
 
     // Shared list of active Chromium root PIDs & all child PIDs for the background worker to inspect
@@ -48,6 +51,26 @@ pub fn spawn_sampler(
 
     // Notify handle to trigger immediate re-detection
     let retrigger_notify = Arc::new(Notify::new());
+
+    // -------------------------------------------------------------
+    // TIER 3: BACKGROUND GPU ENGINE TELEMETRY WORKER (PDH)
+    // -------------------------------------------------------------
+    let gpu_worker_cache = gpu_usage_cache.clone();
+    std::thread::Builder::new()
+        .name("mb-gpu-sampler".to_string())
+        .spawn(move || {
+            let mut gpu_sampler = GpuSampler::new();
+            loop {
+                if let Some(sampler) = &mut gpu_sampler {
+                    let samples = sampler.sample();
+                    if let Ok(mut lock) = gpu_worker_cache.write() {
+                        *lock = samples;
+                    }
+                }
+                std::thread::sleep(Duration::from_millis(500));
+            }
+        })
+        .ok();
 
     // -------------------------------------------------------------
     // TIER 2: ASYNC TITLE ENRICHMENT WORKER (Background Pipeline)
@@ -152,15 +175,19 @@ pub fn spawn_sampler(
             // 1. Collect global host memory stats (<1ms)
             let mem_stats = get_system_memory_stats();
 
-            // 2. Instant O(1) read from cached window titles (guard dropped immediately)
+            // 2. Instant O(1) read from cached window titles & GPU usage (guard dropped immediately)
             let win_titles = window_titles_cache
                 .read()
                 .map(|l| l.clone())
                 .unwrap_or_default();
+            let gpu_usage = gpu_usage_cache
+                .read()
+                .map(|l| l.clone())
+                .unwrap_or_default();
 
-            // 3. Scan raw process memory counters and CPU deltas (<8ms)
+            // 3. Scan raw process memory counters, CPU deltas, and GPU metrics (<8ms)
             let mut processes =
-                scanner.scan_processes(mem_stats.total_physical_bytes, &win_titles);
+                scanner.scan_processes(mem_stats.total_physical_bytes, &win_titles, &gpu_usage);
 
             // 4. Update the active Chromium targets list for the background enrichment worker
             let mut current_chromium_targets = Vec::new();

@@ -1,0 +1,13 @@
+{
+  "timestamp_ms": 1791943212310,
+  "git_branch": "main",
+  "git_last_commit": "remove memoryblast_data",
+  "active_file_path": "C:\\Dev\\MemoryBlast\\start_debug.bat",
+  "active_line_number": 1,
+  "ide_launch_url": "vscode://file/C:/Dev/MemoryBlast/start_debug.bat:1",
+  "last_clipboard_snippet": null,
+  "primary_tab_title": "Rust Documentation",
+  "total_active_tabs": 1,
+  "summary_line1": "⚓ You were working on branch 'main' in start_debug.bat (line 1)",
+  "summary_line2": "Active reference tab: \"Rust Documentation\""
+}

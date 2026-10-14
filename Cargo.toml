@@ -20,6 +20,7 @@ windows = { version = "0.58", features = [
     "Win32_UI_Accessibility",
     "Data_Xml_Dom",
     "UI_Notifications",
+    "Win32_System_Performance",
 ] }
 
 ratatui = "0.29"

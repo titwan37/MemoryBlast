@@ -34,6 +34,7 @@ memoryblast_data/
 # Operating System Files
 # --------------------------------------------------
 # Windows
+memoryblast_data/
 Thumbs.db
 Thumbs.db:encryptable
 ehthumbs.db

@@ -294,6 +294,7 @@ mod tests {
             private_bytes: 200 * 1024 * 1024,
             cpu_percent: 0.5,
             memory_percent: 1.2,
+            gpu_percent: 0.0,
             is_chromium: true,
             proc_type_label: "Renderer".to_string(),
             browser_family: Some("Google Chrome".to_string()),

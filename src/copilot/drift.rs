@@ -274,6 +274,7 @@ mod tests {
             working_set_bytes: 150 * 1024 * 1024,
             cpu_percent: 0.1,
             memory_percent: 1.0,
+            gpu_percent: 0.0,
             children: Vec::new(),
             debug_port: None,
         };
@@ -308,6 +309,7 @@ mod tests {
                 working_set_bytes: 60 * 1024 * 1024,
                 cpu_percent: 0.0,
                 memory_percent: 0.5,
+                gpu_percent: 0.0,
                 children: Vec::new(),
                 debug_port: None,
             })

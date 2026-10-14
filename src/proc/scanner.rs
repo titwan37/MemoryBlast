@@ -33,6 +33,7 @@ pub struct ProcessItem {
     pub working_set_bytes: u64,
     pub cpu_percent: f32,
     pub memory_percent: f32,
+    pub gpu_percent: f32,
     pub children: Vec<ProcessItem>,
     pub debug_port: Option<u16>,
 }
@@ -42,6 +43,7 @@ pub enum SortField {
     PrivateMemory,
     WorkingSet,
     Cpu,
+    Gpu,
     Pid,
     Name,
 }
@@ -51,7 +53,8 @@ impl SortField {
         match self {
             SortField::PrivateMemory => SortField::WorkingSet,
             SortField::WorkingSet => SortField::Cpu,
-            SortField::Cpu => SortField::Pid,
+            SortField::Cpu => SortField::Gpu,
+            SortField::Gpu => SortField::Pid,
             SortField::Pid => SortField::Name,
             SortField::Name => SortField::PrivateMemory,
         }
@@ -62,6 +65,7 @@ impl SortField {
             SortField::PrivateMemory => "Private RAM (Desc)",
             SortField::WorkingSet => "Working Set (Desc)",
             SortField::Cpu => "CPU % (Desc)",
+            SortField::Gpu => "GPU % (Desc)",
             SortField::Pid => "PID (Asc)",
             SortField::Name => "Name (Asc)",
         }
@@ -101,6 +105,7 @@ impl ProcessScanner {
         &mut self,
         total_system_memory: u64,
         window_titles: &HashMap<u32, Vec<String>>,
+        gpu_usage: &HashMap<u32, f32>,
     ) -> Vec<ProcessItem> {
         let snapshot = match unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) } {
             Ok(handle) if !handle.is_invalid() => handle,
@@ -187,6 +192,8 @@ impl ProcessScanner {
                 }
             }
 
+            let gpu_percent = *gpu_usage.get(&pid).unwrap_or(&0.0);
+
             raw_items.push(ProcessItem {
                 pid,
                 ppid,
@@ -199,6 +206,7 @@ impl ProcessScanner {
                 working_set_bytes,
                 cpu_percent,
                 memory_percent,
+                gpu_percent,
                 children: Vec::new(),
                 debug_port,
             });

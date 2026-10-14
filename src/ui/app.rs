@@ -15,6 +15,7 @@ pub struct FlattenedRow {
     pub total_group_private_bytes: u64,
     pub total_group_working_set_bytes: u64,
     pub total_group_cpu_percent: f32,
+    pub total_group_gpu_percent: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -172,7 +173,7 @@ impl App {
             let is_expanded = self.expanded_pids.contains(&root.pid);
             let child_count = count_all_children(&root);
 
-            let (group_priv, group_ws, group_cpu) = calc_group_totals(&root);
+            let (group_priv, group_ws, group_cpu, group_gpu) = calc_group_totals(&root);
 
             // Filter logic: match if query matches root or any child
             let matches_root = process_matches_query(&root, &query);
@@ -194,6 +195,7 @@ impl App {
                 total_group_private_bytes: group_priv,
                 total_group_working_set_bytes: group_ws,
                 total_group_cpu_percent: group_cpu,
+                total_group_gpu_percent: group_gpu,
             });
 
             // Expand children if expanded OR if search is active and child matches
@@ -217,6 +219,7 @@ impl App {
                         total_group_private_bytes: 0,
                         total_group_working_set_bytes: 0,
                         total_group_cpu_percent: 0.0,
+                        total_group_gpu_percent: 0.0,
                     });
                 }
             }
@@ -253,6 +256,11 @@ fn sort_process_items(items: &mut [ProcessItem], sort_field: SortField) {
             let b_tot = b.cpu_percent + b.children.iter().map(|c| c.cpu_percent).sum::<f32>();
             b_tot.partial_cmp(&a_tot).unwrap_or(std::cmp::Ordering::Equal)
         }
+        SortField::Gpu => {
+            let a_tot = a.gpu_percent + a.children.iter().map(|c| c.gpu_percent).sum::<f32>();
+            let b_tot = b.gpu_percent + b.children.iter().map(|c| c.gpu_percent).sum::<f32>();
+            b_tot.partial_cmp(&a_tot).unwrap_or(std::cmp::Ordering::Equal)
+        }
         SortField::Pid => a.pid.cmp(&b.pid),
         SortField::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
@@ -266,17 +274,19 @@ fn count_all_children(item: &ProcessItem) -> usize {
     count
 }
 
-fn calc_group_totals(item: &ProcessItem) -> (u64, u64, f32) {
+fn calc_group_totals(item: &ProcessItem) -> (u64, u64, f32, f32) {
     let mut priv_b = item.private_bytes;
     let mut ws_b = item.working_set_bytes;
     let mut cpu = item.cpu_percent;
+    let mut gpu = item.gpu_percent;
 
     for c in &item.children {
-        let (p, w, cp) = calc_group_totals(c);
+        let (p, w, cp, gp) = calc_group_totals(c);
         priv_b += p;
         ws_b += w;
         cpu += cp;
+        gpu += gp;
     }
 
-    (priv_b, ws_b, cpu)
+    (priv_b, ws_b, cpu, gpu)
 }
