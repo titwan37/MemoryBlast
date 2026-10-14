@@ -114,28 +114,32 @@ impl GpuSampler {
                 return self.last_samples.clone();
             }
 
-            let item_size = std::mem::size_of::<PDH_FMT_COUNTERVALUE_ITEM_W>();
-            let num_items = (buffer_size as usize) / item_size;
-            let mut items: Vec<PDH_FMT_COUNTERVALUE_ITEM_W> = Vec::with_capacity(num_items);
+            // Allocate an 8-byte aligned buffer of u64 with extra headroom so PDH never writes past capacity
+            let words_needed = (buffer_size as usize + 7) / 8 + 64;
+            let mut buffer: Vec<u64> = vec![0u64; words_needed];
+            let mut actual_buffer_bytes = (buffer.len() * std::mem::size_of::<u64>()) as u32;
 
             let status = PdhGetFormattedCounterArrayW(
                 self.counter,
                 PDH_FMT_DOUBLE,
-                &mut buffer_size,
+                &mut actual_buffer_bytes,
                 &mut item_count,
-                Some(items.as_mut_ptr()),
+                Some(buffer.as_mut_ptr() as *mut PDH_FMT_COUNTERVALUE_ITEM_W),
             );
 
             if status != 0 {
                 return self.last_samples.clone();
             }
 
-            items.set_len(item_count as usize);
+            let items = std::slice::from_raw_parts(
+                buffer.as_ptr() as *const PDH_FMT_COUNTERVALUE_ITEM_W,
+                item_count as usize,
+            );
 
             let mut pid_gpu: HashMap<u32, f32> = HashMap::with_capacity(64);
 
-            for item in &items {
-                if item.szName.is_null() {
+            for item in items {
+                if item.FmtValue.CStatus != 0 || item.szName.is_null() {
                     continue;
                 }
 
@@ -174,5 +178,21 @@ impl GpuSampler {
 impl Drop for GpuSampler {
     fn drop(&mut self) {
         self.close_query();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gpu_sampler_loop() {
+        if let Some(mut sampler) = GpuSampler::new() {
+            for i in 0..60 {
+                let samples = sampler.sample();
+                println!("Iteration {}: Sampled {} processes", i, samples.len());
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
     }
 }
