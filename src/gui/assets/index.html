@@ -3,60 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MemoryBlast — Task Manager</title>
-  <link rel="stylesheet" href="/style.css">
+  <title>MemoryBlast — System Health & Memory Hub</title>
+  <link id="app-theme-style" rel="stylesheet" href="/ios_style.css">
 </head>
 <body class="fluent-dark">
-  <!-- Top Application Bar -->
+  <!-- Top Navigation & Action Bar -->
   <header class="titlebar">
     <div class="titlebar-left">
-      <div class="app-icon">⚡</div>
-      <span class="app-title">MemoryBlast</span>
+      <div class="app-brand">
+        <div class="app-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="app-title-group">
+          <span class="app-title">MemoryBlast</span>
+          <span class="app-subtitle">System Health & Memory Hub</span>
+        </div>
+      </div>
     </div>
     
     <div class="search-container">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="global-search" placeholder="Type a name, PID, or tab title to search" autocomplete="off">
+      <span class="search-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </span>
+      <input type="text" id="global-search" placeholder="Search apps, tabs, or processes..." autocomplete="off">
       <button id="search-clear" class="btn-clear hidden">✕</button>
     </div>
 
     <div class="titlebar-actions">
+      <button id="btn-theme-toggle" class="ios-btn" title="Toggle Theme (iOS Acrylic / Windows Fluent)">
+        <span id="theme-toggle-icon">🍎</span>
+        <span id="theme-toggle-label">iOS Style</span>
+      </button>
       <div id="admin-badge" class="badge badge-user">[STANDARD USER]</div>
-      <button id="btn-detect-tabs" class="fluent-btn" title="Retrigger detection of browser tab names and window titles">
-        <span class="btn-icon">🔍</span> Detect Tabs
+      <button id="btn-magic-clean" class="ios-btn btn-magic" title="Instant Memory Compaction & Trim">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+          <path d="M5 3v4"></path>
+          <path d="M19 17v4"></path>
+          <path d="M3 5h4"></path>
+          <path d="M17 19h4"></path>
+        </svg>
+        Magic Clean
       </button>
-      <button id="btn-park-context" class="fluent-btn btn-primary" title="Park Current Context: Stash open tabs & reclaim RAM (Global Hotkey: Ctrl+Shift+F)">
-        <span class="btn-icon">📦</span> Park Context <span class="hotkey-chip">Ctrl+Shift+F</span>
+      <button id="btn-park-context" class="ios-btn" title="Park Current Context: Stash open tabs & reclaim RAM (Ctrl+Shift+F)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+          <path d="m3.3 7 8.7 5 8.7-5"></path>
+          <path d="M12 22V12"></path>
+        </svg>
+        Park Tabs <span class="hotkey-chip">Ctrl+Shift+F</span>
       </button>
-      <button id="btn-trim-ram" class="fluent-btn" disabled title="Trim Resident Working Set (K32EmptyWorkingSet)">
-        <span class="btn-icon">✂️</span> Trim RAM
+      <button id="btn-detect-tabs" class="ios-btn" title="Retrigger tab and window title detection">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        Detect Tabs
       </button>
-      <button id="btn-export-parquet" class="fluent-btn" title="Export Snapshot to Apache Parquet Columnar Storage">
-        <span class="btn-icon">💾</span> Parquet
+      <button id="btn-export-parquet" class="ios-btn" title="Export Snapshot to Apache Parquet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        Parquet
       </button>
-      <button id="btn-focus-tab" class="fluent-btn" disabled title="Bring browser window to foreground and switch to this tab">
-        <span class="btn-icon">🎯</span> Focus Tab
+      <button id="btn-refresh" class="ios-btn" title="Refresh metrics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+          <path d="M21 3v5h-5"></path>
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+          <path d="M8 16H3v5"></path>
+        </svg>
       </button>
-      <button id="btn-end-task" class="fluent-btn btn-danger" disabled>
-        <span class="btn-icon">✕</span> End task
-      </button>
-      <button id="btn-refresh" class="fluent-btn" title="Refresh metrics">
-        <span class="btn-icon">🔄</span>
-      </button>
+
+      <!-- Legacy Action Buttons (Retained for Backwards Compatibility) -->
+      <button id="btn-trim-ram" class="hidden" disabled></button>
+      <button id="btn-focus-tab" class="hidden" disabled></button>
+      <button id="btn-end-task" class="hidden" disabled></button>
     </div>
   </header>
 
   <!-- Main Layout Container -->
   <div class="app-body">
-    <!-- Left Navigation Rail -->
+    <!-- Left Floating Sidebar Rail -->
     <nav class="sidebar">
       <div class="nav-top">
-        <button class="nav-btn nav-hamburger" id="nav-toggle">
+        <button class="nav-btn nav-hamburger" id="nav-toggle" title="Toggle Sidebar">
           <span class="nav-icon">☰</span>
+          <span class="nav-label">Collapse</span>
         </button>
         <button class="nav-btn active" data-view="processes" id="nav-processes">
-          <span class="nav-icon">🗂️</span>
-          <span class="nav-label">Processes</span>
+          <span class="nav-icon">⚡</span>
+          <span class="nav-label">Apps & Health</span>
         </button>
         <button class="nav-btn" data-view="treemap" id="nav-treemap">
           <span class="nav-icon">🗺️</span>
@@ -80,54 +124,194 @@
       <div class="nav-bottom">
         <button class="nav-btn" id="nav-cli-hint" title="Terminal TUI available with --cli">
           <span class="nav-icon">💻</span>
-          <span class="nav-label">CLI Mode</span>
+          <span class="nav-label">Terminal CLI</span>
         </button>
       </div>
     </nav>
 
     <!-- Main Content Panels -->
     <main class="content-container">
-      <!-- VIEW 1: PROCESSES TREE -->
+      <!-- VIEW 1: SYSTEM HEALTH & APP HUB (Primary View) -->
       <section id="view-processes" class="view-panel active">
-        <!-- Quick Stats Header Banner -->
-        <div class="stats-banner">
-          <div class="banner-stat">
-            <span class="stat-label">Total Memory In Use:</span>
-            <span class="stat-value" id="banner-ram-used">-- / -- GB</span>
+        <div class="hub-scroll-area">
+          <!-- Human-Readable Health Status Banner -->
+          <div class="health-status-banner">
+            <div class="health-status-left">
+              <div id="hub-status-dot" class="health-pulse-dot"></div>
+              <div>
+                <div id="hub-status-text" class="health-headline">System is Running Smoothly</div>
+                <div id="hub-status-sub" class="health-subline">All active applications are responsive • 0 MB leak velocity</div>
+              </div>
+            </div>
+            <div class="health-status-right">
+              <button id="btn-quick-optimize" class="ios-btn btn-magic" style="height: 30px; font-size: 11.5px;">
+                ✨ Optimize RAM
+              </button>
+            </div>
           </div>
-          <div class="banner-stat">
-            <span class="stat-label">Committed:</span>
-            <span class="stat-value" id="banner-commit">-- / -- GB</span>
-          </div>
-          <div class="banner-stat">
-            <span class="stat-label">Paged / Non-Paged:</span>
-            <span class="stat-value" id="banner-pools">-- / --</span>
-          </div>
-          <div class="banner-stat right">
-            <span class="stat-label">Active Processes:</span>
-            <span class="stat-value" id="banner-proc-count">0</span>
-          </div>
-        </div>
 
-        <!-- Process Table -->
-        <div class="table-scroll-container">
-          <table class="fluent-table" id="process-table">
-            <thead>
-              <tr>
-                <th class="col-name sortable" data-sort="name" data-col="name" title="Drag edge to resize column, double-click to reset">Name <span class="sort-indicator"></span><div class="col-resizer"></div></th>
-                <th class="col-pid sortable" data-sort="pid" data-col="pid" title="Drag edge to resize column, double-click to reset">PID <span class="sort-indicator"></span><div class="col-resizer"></div></th>
-                <th class="col-type" data-col="type" title="Drag edge to resize column, double-click to reset">Type / Role<div class="col-resizer"></div></th>
-                <th class="col-cpu sortable" data-sort="cpu" data-col="cpu" title="Drag edge to resize column, double-click to reset">CPU <span class="sort-indicator"></span><div class="col-resizer"></div></th>
-                <th class="col-memory sortable active-sort desc" data-sort="memory" data-col="memory" title="Drag edge to resize column, double-click to reset">Memory <span class="sort-indicator">▼</span><div class="col-resizer"></div></th>
-                <th class="col-ws" data-col="ws" title="Drag edge to resize column, double-click to reset">Working Set<div class="col-resizer"></div></th>
-              </tr>
-            </thead>
-            <tbody id="process-table-body">
-              <tr>
-                <td colspan="6" class="loading-cell">Loading system processes and Chromium tabs...</td>
-              </tr>
-            </tbody>
-          </table>
+          <!-- 3 Circular Radial Activity Rings / Gauges -->
+          <div class="gauges-row">
+            <!-- GAUGE 1: System Pressure -->
+            <div class="gauge-card">
+              <div class="gauge-ring-wrap">
+                <svg class="gauge-svg" viewBox="0 0 100 100">
+                  <defs>
+                    <linearGradient id="pressure-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#34D399" />
+                      <stop offset="100%" stop-color="#10B981" />
+                    </linearGradient>
+                  </defs>
+                  <circle class="gauge-track" cx="50" cy="50" r="44"></circle>
+                  <circle id="gauge-pressure-fill" class="gauge-fill" cx="50" cy="50" r="44" stroke="url(#pressure-grad)" stroke-dasharray="276.46" stroke-dashoffset="160"></circle>
+                </svg>
+                <div class="gauge-center-text">
+                  <span id="gauge-pressure-val" class="gauge-value">42%</span>
+                  <span class="gauge-unit">LOAD</span>
+                </div>
+              </div>
+              <div class="gauge-info">
+                <span class="gauge-title">System Pressure</span>
+                <span id="gauge-pressure-status" class="gauge-status-badge">● Optimal</span>
+                <span id="gauge-pressure-sub" class="gauge-desc">Committed: -- / -- GB</span>
+              </div>
+            </div>
+
+            <!-- GAUGE 2: Active Workload -->
+            <div class="gauge-card">
+              <div class="gauge-ring-wrap">
+                <svg class="gauge-svg" viewBox="0 0 100 100">
+                  <defs>
+                    <linearGradient id="workload-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#38BDF8" />
+                      <stop offset="100%" stop-color="#2563EB" />
+                    </linearGradient>
+                  </defs>
+                  <circle class="gauge-track" cx="50" cy="50" r="44"></circle>
+                  <circle id="gauge-workload-fill" class="gauge-fill" cx="50" cy="50" r="44" stroke="url(#workload-grad)" stroke-dasharray="276.46" stroke-dashoffset="138"></circle>
+                </svg>
+                <div class="gauge-center-text">
+                  <span id="gauge-workload-val" class="gauge-value">--</span>
+                  <span class="gauge-unit">GB</span>
+                </div>
+              </div>
+              <div class="gauge-info">
+                <span class="gauge-title">Active Workload</span>
+                <span id="gauge-workload-badge" class="gauge-status-badge" style="color: var(--accent-cyan);">In-Use Memory</span>
+                <span id="gauge-workload-sub" class="gauge-desc">-- of -- GB Used</span>
+              </div>
+            </div>
+
+            <!-- GAUGE 3: Background Apps & Tabs -->
+            <div class="gauge-card">
+              <div class="gauge-ring-wrap">
+                <svg class="gauge-svg" viewBox="0 0 100 100">
+                  <defs>
+                    <linearGradient id="apps-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#A855F7" />
+                      <stop offset="100%" stop-color="#6366F1" />
+                    </linearGradient>
+                  </defs>
+                  <circle class="gauge-track" cx="50" cy="50" r="44"></circle>
+                  <circle id="gauge-apps-fill" class="gauge-fill" cx="50" cy="50" r="44" stroke="url(#apps-grad)" stroke-dasharray="276.46" stroke-dashoffset="80"></circle>
+                </svg>
+                <div class="gauge-center-text">
+                  <span id="gauge-apps-val" class="gauge-value">0</span>
+                  <span class="gauge-unit">APPS</span>
+                </div>
+              </div>
+              <div class="gauge-info">
+                <span class="gauge-title">Running Workspace</span>
+                <span id="gauge-apps-status" class="gauge-status-badge" style="color: var(--accent-purple);">● Active</span>
+                <span id="gauge-apps-sub" class="gauge-desc">-- Apps • -- Tabs</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hidden legacy spans for backwards telemetry callbacks -->
+          <div style="display:none;">
+            <span id="banner-ram-used">--</span>
+            <span id="banner-commit">--</span>
+            <span id="banner-pools">--</span>
+            <span id="banner-proc-count">0</span>
+          </div>
+
+          <!-- Filter & View Controls Bar -->
+          <div class="hub-controls-bar">
+            <div class="category-filter-pills">
+              <button class="filter-pill active" data-filter="all">
+                All Apps <span id="count-all" class="filter-count">0</span>
+              </button>
+              <button class="filter-pill" data-filter="browsers">
+                Web Browsers <span id="count-browsers" class="filter-count">0</span>
+              </button>
+              <button class="filter-pill" data-filter="heavy">
+                Heavy (>500MB) <span id="count-heavy" class="filter-count">0</span>
+              </button>
+              <button class="filter-pill" data-filter="background">
+                Background <span id="count-background" class="filter-count">0</span>
+              </button>
+            </div>
+
+            <div class="hub-view-toggles">
+              <div class="sort-select-wrap">
+                <select id="hub-sort-select" class="ios-select">
+                  <option value="memory-desc">Sort: Memory (Highest)</option>
+                  <option value="cpu-desc">Sort: CPU (Highest)</option>
+                  <option value="name-asc">Sort: Name (A to Z)</option>
+                  <option value="pid-asc">Sort: PID (Ascending)</option>
+                </select>
+                <span class="sort-icon-arrow">▼</span>
+              </div>
+
+              <button id="btn-view-cards" class="view-mode-btn active" title="Card Grid View">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="7" height="7" x="3" y="3" rx="1"></rect>
+                  <rect width="7" height="7" x="14" y="3" rx="1"></rect>
+                  <rect width="7" height="7" x="14" y="14" rx="1"></rect>
+                  <rect width="7" height="7" x="3" y="14" rx="1"></rect>
+                </svg>
+              </button>
+              <button id="btn-view-table" class="view-mode-btn" title="Compact Table View">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cards View (Default iOS Layout) -->
+          <div id="apps-grid" class="apps-grid-view">
+            <div class="loading-cell" style="grid-column: 1 / -1;">
+              Loading system health & running applications...
+            </div>
+          </div>
+
+          <!-- Compact Table View (Alternative for Dense Diagnosis) -->
+          <div id="process-table-wrap" class="table-scroll-container hidden">
+            <table class="fluent-table" id="process-table">
+              <thead>
+                <tr>
+                  <th class="col-name sortable" data-sort="name" data-col="name">Application <span class="sort-indicator"></span><div class="col-resizer"></div></th>
+                  <th class="col-pid sortable" data-sort="pid" data-col="pid">PID <span class="sort-indicator"></span><div class="col-resizer"></div></th>
+                  <th class="col-type" data-col="type">Category / Role<div class="col-resizer"></div></th>
+                  <th class="col-cpu sortable" data-sort="cpu" data-col="cpu">CPU <span class="sort-indicator"></span><div class="col-resizer"></div></th>
+                  <th class="col-memory sortable active-sort desc" data-sort="memory" data-col="memory">Memory <span class="sort-indicator">▼</span><div class="col-resizer"></div></th>
+                  <th class="col-ws" data-col="ws">Working Set<div class="col-resizer"></div></th>
+                </tr>
+              </thead>
+              <tbody id="process-table-body">
+                <tr>
+                  <td colspan="6" class="loading-cell">Loading system processes...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -226,7 +410,7 @@
             <span class="legend-chip chip-leak"><span class="chip-dot" style="background:#EF4444"></span> High RAM / Leaks</span>
           </div>
           <div class="treemap-controls">
-            <button id="btn-treemap-reset" class="fluent-btn" title="Reset Zoom">🔄 Reset View</button>
+            <button id="btn-treemap-reset" class="ios-btn" title="Reset Zoom">🔄 Reset View</button>
           </div>
         </div>
 
@@ -242,9 +426,9 @@
             <span class="inspector-sub" id="insp-sub">--</span>
           </div>
           <div class="inspector-actions">
-            <button id="insp-btn-trim" class="fluent-btn" disabled><span class="btn-icon">✂️</span> Trim Working Set</button>
-            <button id="insp-btn-focus" class="fluent-btn btn-primary" disabled><span class="btn-icon">🎯</span> Focus Tab</button>
-            <button id="insp-btn-kill" class="fluent-btn btn-danger" disabled><span class="btn-icon">✕</span> End Process</button>
+            <button id="insp-btn-trim" class="ios-btn" disabled><span class="btn-icon">✂️</span> Trim Working Set</button>
+            <button id="insp-btn-focus" class="ios-btn btn-magic" disabled><span class="btn-icon">🎯</span> Focus Tab</button>
+            <button id="insp-btn-kill" class="ios-btn" style="color:var(--accent-rose);" disabled><span class="btn-icon">✕</span> End Process</button>
           </div>
         </div>
       </section>
@@ -266,8 +450,8 @@
               <div class="card-metric-title">Columnar Telemetry Pipeline</div>
               <div class="card-metric-val" id="telemetry-status-val">Streaming Active (500ms)</div>
               <div class="card-metric-sub">Fast Apache Parquet time-series persistence ready</div>
-              <button id="btn-export-parquet-inline" class="fluent-btn" style="margin-top:8px;">
-                <span class="btn-icon">💾</span> Export Parquet Snapshot
+              <button id="btn-export-parquet-inline" class="ios-btn" style="margin-top:8px;">
+                💾 Export Parquet Snapshot
               </button>
             </div>
           </div>
@@ -358,8 +542,8 @@
               <div id="anchor-summary-2" class="anchor-subtitle">Active task context</div>
             </div>
             <div class="anchor-hero-actions">
-              <a id="btn-anchor-launch" href="#" class="fluent-btn btn-primary hero-launch-btn" target="_blank">🚀 Open in IDE</a>
-              <button id="btn-stash-rabbithole" class="fluent-btn btn-rabbit-hero">🐇 Stash Rabbit Hole</button>
+              <a id="btn-anchor-launch" href="#" class="ios-btn btn-magic hero-launch-btn" target="_blank">🚀 Open in IDE</a>
+              <button id="btn-stash-rabbithole" class="ios-btn btn-rabbit-hero">🐇 Stash Rabbit Hole</button>
             </div>
           </div>
 
@@ -392,7 +576,7 @@
                 <span class="kpi-value highlight-value" id="copilot-reclaimed-val">0.0 MB</span>
               </div>
               <span class="kpi-subtext" id="copilot-stashed-count">0 tasks cleanly parked & finished</span>
-              <button id="btn-copilot-park-hero" class="fluent-btn btn-primary hero-btn">
+              <button id="btn-copilot-park-hero" class="ios-btn btn-magic hero-btn" style="margin-top: 10px;">
                 <span>📦 Park All Inactive Context</span>
               </button>
             </div>
@@ -419,7 +603,7 @@
                 <h2 class="section-title">📦 Stashed Contexts & Saved Sessions (SQLite Archive)</h2>
                 <span class="section-subtitle">Restore any previously parked research session with zero fear of losing state</span>
               </div>
-              <button id="btn-refresh-stashes" class="fluent-btn">🔄 Refresh Stashes</button>
+              <button id="btn-refresh-stashes" class="ios-btn">🔄 Refresh Stashes</button>
             </div>
             <div class="stashes-list" id="stashes-list">
               <div class="rec-empty-card">No stashed sessions yet. Press Ctrl+Shift+F anytime to park your open tabs!</div>
@@ -433,7 +617,7 @@
                 <h2 class="section-title">📋 Clipboard Telemetry & Safety Vault (Non-Polling, Secret-Safe)</h2>
                 <span class="section-subtitle">Auto-classified code, error traces, and lost buffers with automatic secret redaction</span>
               </div>
-              <button id="btn-refresh-clipboard" class="fluent-btn">🔄 Refresh Vault</button>
+              <button id="btn-refresh-clipboard" class="ios-btn">🔄 Refresh Vault</button>
             </div>
             <div class="clipboard-vault-list" id="clipboard-vault-list">
               <div class="rec-empty-card">No clipboard history recorded yet. Copy any code, error, or command to see it here!</div>
@@ -447,7 +631,7 @@
                 <h2 class="section-title">📊 Tab Lifecycles, Mortality & Graveyard Analytics (CDP Telemetry)</h2>
                 <span class="section-subtitle">Measured tab shelf-life, intentional vs abandoned closure causes, and context decay thresholds</span>
               </div>
-              <button id="btn-refresh-tab-analytics" class="fluent-btn">🔄 Refresh Analytics</button>
+              <button id="btn-refresh-tab-analytics" class="ios-btn">🔄 Refresh Analytics</button>
             </div>
             <div class="tab-analytics-grid">
               <div class="analytics-stat-card">
@@ -500,7 +684,7 @@
                 <h2 class="section-title">📁 Windows File Explorer Workspaces & Folders (COM & UIA)</h2>
                 <span class="section-subtitle">Real-time explorer.exe windows, active project directories, and forgotten folder tabs</span>
               </div>
-              <button id="btn-refresh-explorer" class="fluent-btn">🔄 Refresh Folders</button>
+              <button id="btn-refresh-explorer" class="ios-btn">🔄 Refresh Folders</button>
             </div>
             <div class="explorer-workspaces-list" id="explorer-workspaces-list">
               <div class="rec-empty-card">Scanning active Windows File Explorer windows and tabs...</div>
@@ -511,20 +695,110 @@
     </main>
   </div>
 
-  <!-- End Task Confirmation Dialog Modal -->
+  <!-- Slide-Over Technical Inspector Drawer (iOS Glass Sheet) -->
+  <div id="inspector-backdrop" class="inspector-backdrop"></div>
+  <aside id="inspector-drawer" class="inspector-drawer">
+    <div class="inspector-header">
+      <div class="inspector-identity">
+        <div id="insp-icon-wrap" class="inspector-app-icon">
+          ⚡
+        </div>
+        <div class="inspector-title-wrap">
+          <span id="insp-app-name" class="inspector-title">Application Details</span>
+          <span id="insp-app-cat" class="inspector-category">System Process</span>
+        </div>
+      </div>
+      <button id="insp-close-btn" class="inspector-close-btn" title="Close Inspector">✕</button>
+    </div>
+
+    <div class="inspector-body">
+      <!-- Section 1: Memory Metrics -->
+      <div>
+        <div class="inspector-section-title">Memory Allocation</div>
+        <div class="inspector-kpi-grid">
+          <div class="inspector-kpi-card">
+            <span class="inspector-kpi-label">Resident Working Set</span>
+            <span id="insp-ws-val" class="inspector-kpi-val">--</span>
+          </div>
+          <div class="inspector-kpi-card">
+            <span class="inspector-kpi-label">Private Memory</span>
+            <span id="insp-priv-val" class="inspector-kpi-val">--</span>
+          </div>
+          <div class="inspector-kpi-card">
+            <span class="inspector-kpi-label">RAM Share</span>
+            <span id="insp-ram-pct" class="inspector-kpi-val">--%</span>
+          </div>
+          <div class="inspector-kpi-card">
+            <span class="inspector-kpi-label">CPU Activity</span>
+            <span id="insp-cpu-val" class="inspector-kpi-val">--%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Technical Identity -->
+      <div>
+        <div class="inspector-section-title">Process Diagnostics</div>
+        <div class="inspector-props-list">
+          <div class="inspector-prop-row">
+            <span class="inspector-prop-key">Process ID (PID)</span>
+            <span id="insp-pid-val" class="inspector-prop-val">--</span>
+          </div>
+          <div class="inspector-prop-row">
+            <span class="inspector-prop-key">Parent Process ID</span>
+            <span id="insp-ppid-val" class="inspector-prop-val">--</span>
+          </div>
+          <div class="inspector-prop-row">
+            <span class="inspector-prop-key">Executable</span>
+            <span id="insp-exe-val" class="inspector-prop-val">--</span>
+          </div>
+          <div class="inspector-prop-row">
+            <span class="inspector-prop-key">Window / Tab Title</span>
+            <span id="insp-title-val" class="inspector-prop-val">--</span>
+          </div>
+          <div class="inspector-prop-row" id="insp-port-row" style="display:none;">
+            <span class="inspector-prop-key">CDP Debug Port</span>
+            <span id="insp-port-val" class="inspector-prop-val">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Child Threads & Tabs -->
+      <div id="insp-children-section">
+        <div class="inspector-section-title" id="insp-children-title">Grouped Tabs & Workers (0)</div>
+        <div id="insp-children-list" class="inspector-children-list">
+          <div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">No child processes</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspector Footer Actions -->
+    <div class="inspector-footer-actions">
+      <button id="insp-action-focus" class="ios-btn" title="Bring window or tab to foreground">
+        🎯 Switch To
+      </button>
+      <button id="insp-action-trim" class="ios-btn" title="Trim memory working set (Put to sleep)">
+        💤 Sleep / Trim
+      </button>
+      <button id="insp-action-kill" class="ios-btn" style="color:var(--accent-rose); border-color: rgba(244,63,94,0.3);" title="Close application">
+        ✕ Close App
+      </button>
+    </div>
+  </aside>
+
+  <!-- End Task Confirmation Dialog Modal (Apple Glass Sheet) -->
   <div id="kill-modal" class="modal-overlay hidden">
     <div class="fluent-dialog">
       <div class="dialog-header">
         <span class="dialog-icon">⚠️</span>
-        <h3 class="dialog-title">End Process</h3>
+        <h3 class="dialog-title">Close Application</h3>
       </div>
       <div class="dialog-body">
-        <p>Do you want to end <strong id="modal-proc-name">Process</strong> (PID: <span id="modal-proc-pid">--</span>)?</p>
-        <p class="dialog-warning">If an open program is associated with this process, it will close and you will lose any unsaved data.</p>
+        <p>Are you sure you want to close <strong id="modal-proc-name">Process</strong> (PID: <span id="modal-proc-pid">--</span>)?</p>
+        <p class="dialog-warning">Any unsaved work in this application will be lost. To free memory without closing the app, try <strong>Sleep / Trim</strong> instead.</p>
       </div>
       <div class="dialog-footer">
-        <button id="modal-btn-confirm" class="fluent-btn btn-danger">End process</button>
-        <button id="modal-btn-cancel" class="fluent-btn">Cancel</button>
+        <button id="modal-btn-cancel" class="ios-btn">Cancel</button>
+        <button id="modal-btn-confirm" class="ios-btn" style="background: var(--accent-rose); color: #FFF; border-color: var(--accent-rose);">Close App</button>
       </div>
     </div>
   </div>

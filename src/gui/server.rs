@@ -9,6 +9,7 @@ use crate::sampler::SamplerCommand;
 
 const INDEX_HTML: &str = include_str!("assets/index.html");
 const STYLE_CSS: &str = include_str!("assets/style.css");
+const IOS_STYLE_CSS: &str = include_str!("assets/ios_style.css");
 const APP_JS: &str = include_str!("assets/app.js");
 
 pub struct GuiServer {
@@ -61,6 +62,9 @@ impl GuiServer {
                         }
                         ("GET", "/style.css") => {
                             send_response(&mut socket, "text/css; charset=utf-8", STYLE_CSS.as_bytes()).await;
+                        }
+                        ("GET", "/ios_style.css") => {
+                            send_response(&mut socket, "text/css; charset=utf-8", IOS_STYLE_CSS.as_bytes()).await;
                         }
                         ("GET", "/app.js") => {
                             send_response(&mut socket, "application/javascript; charset=utf-8", APP_JS.as_bytes()).await;

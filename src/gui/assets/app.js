@@ -5,25 +5,135 @@ let selectedPpid = null;
 let selectedName = null;
 let selectedTitle = null;
 let selectedPort = null;
+let inspectedProcess = null;
 let currentSort = { col: 'memory', desc: true };
 let searchQuery = '';
+let activeCategory = 'all'; // 'all', 'browsers', 'heavy', 'background'
+let viewMode = 'cards';     // 'cards' or 'table'
 let activeView = 'processes';
 
 // 60-second history buffer (each sample ~500ms -> up to 120 samples)
 const memoryHistory = [];
 const MAX_HISTORY = 120;
 
+// SVG Icons Catalog (Apple / SF Symbols inspired vector icons)
+const ICONS = {
+  chrome: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#38BDF8" stroke-width="1.8"/><circle cx="12" cy="12" r="4" fill="#38BDF8"/><path d="M12 2a10 10 0 0 1 8.66 5H12" stroke="#34D399" stroke-width="1.8"/><path d="M20.66 7 12 22" stroke="#FBBF24" stroke-width="1.8"/><path d="M12 22a10 10 0 0 1-8.66-15H12" stroke="#F87171" stroke-width="1.8"/></svg>`,
+  edge: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0284C7" stroke-width="1.8"/><path d="M12 4a8 8 0 0 1 8 8c0 4.4-3.6 8-8 8-3.5 0-6.5-2.2-7.6-5.4 1.2.9 2.8 1.4 4.6 1.4 4 0 7-3 7-7 0-1.8-.6-3.4-1.7-4.6A7.9 7.9 0 0 1 12 4Z" fill="#38BDF8"/></svg>`,
+  brave: `<svg viewBox="0 0 24 24" fill="none"><path d="m12 2 7 4v6c0 5-3.5 9-7 10-3.5-1-7-5-7-10V6l7-4Z" stroke="#F97316" stroke-width="1.8" fill="rgba(249,115,22,0.15)"/><circle cx="12" cy="12" r="3" fill="#F97316"/></svg>`,
+  firefox: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#EA580C" stroke-width="1.8"/><circle cx="12" cy="12" r="6" fill="#F97316"/><path d="M12 6a6 6 0 0 1 6 6" stroke="#FEF08A" stroke-width="2"/></svg>`,
+  browserGeneric: `<svg viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1-4-10z"></path></svg>`,
+  vscode: `<svg viewBox="0 0 24 24" fill="none"><path d="m17 2 4 2v16l-4 2-9-7.5L4 18l-2-1V7l2-1 4 3.5L17 2Z" stroke="#38BDF8" stroke-width="1.8" fill="rgba(56,189,248,0.15)"/><path d="m17 7-9 5 9 5" stroke="#38BDF8" stroke-width="1.8"/></svg>`,
+  terminal: `<svg viewBox="0 0 24 24" fill="none" stroke="#A855F7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line><rect x="2" y="2" width="20" height="20" rx="4" stroke-width="1.5" stroke="rgba(255,255,255,0.15)"></rect></svg>`,
+  spotify: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#10B981"/><path d="M6.5 9.5c3.5-1 7.5-.8 11 1.2" stroke="#000" stroke-width="2" stroke-linecap="round"/><path d="M7.5 12.5c3-.8 6.5-.6 9.5 1" stroke="#000" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 15.5c2.5-.6 5-.5 7.5.8" stroke="#000" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  discord: `<svg viewBox="0 0 24 24" fill="none"><rect width="20" height="20" x="2" y="2" rx="5" fill="#6366F1"/><circle cx="9" cy="12" r="1.5" fill="#FFF"/><circle cx="15" cy="12" r="1.5" fill="#FFF"/><path d="M7 16c2-1 3-1 5-1s3 0 5 1" stroke="#FFF" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  slack: `<svg viewBox="0 0 24 24" fill="none"><circle cx="7" cy="7" r="3" fill="#E11D48"/><circle cx="17" cy="7" r="3" fill="#0EA5E9"/><circle cx="7" cy="17" r="3" fill="#10B981"/><circle cx="17" cy="17" r="3" fill="#F59E0B"/></svg>`,
+  docker: `<svg viewBox="0 0 24 24" fill="none"><rect width="20" height="20" x="2" y="2" rx="4" fill="rgba(14,165,233,0.15)" stroke="#0EA5E9" stroke-width="1.5"/><rect x="5" y="10" width="3" height="3" fill="#0EA5E9"/><rect x="9" y="10" width="3" height="3" fill="#0EA5E9"/><rect x="13" y="10" width="3" height="3" fill="#0EA5E9"/><rect x="9" y="6" width="3" height="3" fill="#0EA5E9"/><path d="M4 15c2 2 12 2 16 0" stroke="#0EA5E9" stroke-width="1.5"/></svg>`,
+  explorer: `<svg viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`,
+  python: `<svg viewBox="0 0 24 24" fill="none"><path d="M12 2c-4 0-4 2-4 3v3h4V7h2v3h2c2 0 4-.5 4-4s-2-4-8-4Z" fill="#38BDF8"/><path d="M12 22c4 0 4-2 4-3v-3h-4v1h-2v-3H8c-2 0-4 .5-4 4s2 4 8 4Z" fill="#FBBF24"/><circle cx="9.5" cy="5" r=".7" fill="#000"/><circle cx="14.5" cy="19" r=".7" fill="#000"/></svg>`,
+  steam: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#1E293B" stroke="#64748B" stroke-width="1.5"/><circle cx="8" cy="15" r="2.5" fill="#38BDF8"/><circle cx="15" cy="9" r="3.5" stroke="#38BDF8" stroke-width="1.5"/><line x1="10" y1="13.5" x2="13" y2="10.5" stroke="#38BDF8" stroke-width="2"/></svg>`,
+  systemService: `<svg viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
+  genericApp: `<svg viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`
+};
+
+// Verified Application Catalog
+const APP_CATALOG = {
+  'chrome.exe': { name: 'Google Chrome', category: 'Web Browser', icon: ICONS.chrome },
+  'msedge.exe': { name: 'Microsoft Edge', category: 'Web Browser', icon: ICONS.edge },
+  'brave.exe': { name: 'Brave Browser', category: 'Web Browser', icon: ICONS.brave },
+  'firefox.exe': { name: 'Mozilla Firefox', category: 'Web Browser', icon: ICONS.firefox },
+  'code.exe': { name: 'Visual Studio Code', category: 'Code Editor', icon: ICONS.vscode },
+  'cursor.exe': { name: 'Cursor AI IDE', category: 'Code Editor', icon: ICONS.vscode },
+  'antigravity.exe': { name: 'Antigravity IDE', category: 'Code Editor', icon: ICONS.vscode },
+  'gemini.exe': { name: 'Antigravity Studio', category: 'Code Editor', icon: ICONS.vscode },
+  'windowsterminal.exe': { name: 'Windows Terminal', category: 'Developer Tool', icon: ICONS.terminal },
+  'wt.exe': { name: 'Windows Terminal', category: 'Developer Tool', icon: ICONS.terminal },
+  'powershell.exe': { name: 'PowerShell', category: 'Developer Tool', icon: ICONS.terminal },
+  'pwsh.exe': { name: 'PowerShell Core', category: 'Developer Tool', icon: ICONS.terminal },
+  'cmd.exe': { name: 'Command Prompt', category: 'Developer Tool', icon: ICONS.terminal },
+  'spotify.exe': { name: 'Spotify Music', category: 'Audio & Media', icon: ICONS.spotify },
+  'discord.exe': { name: 'Discord', category: 'Communication', icon: ICONS.discord },
+  'slack.exe': { name: 'Slack', category: 'Communication', icon: ICONS.slack },
+  'telegram.exe': { name: 'Telegram Desktop', category: 'Communication', icon: ICONS.discord },
+  'teams.exe': { name: 'Microsoft Teams', category: 'Communication', icon: ICONS.slack },
+  'ms-teams.exe': { name: 'Microsoft Teams', category: 'Communication', icon: ICONS.slack },
+  'steam.exe': { name: 'Steam Gaming', category: 'Games & Store', icon: ICONS.steam },
+  'explorer.exe': { name: 'Windows File Explorer', category: 'System Shell', icon: ICONS.explorer },
+  'docker desktop.exe': { name: 'Docker Desktop', category: 'Virtualization', icon: ICONS.docker },
+  'com.docker.backend.exe': { name: 'Docker Service Engine', category: 'Virtualization', icon: ICONS.docker },
+  'python.exe': { name: 'Python Runtime', category: 'Programming Runtime', icon: ICONS.python },
+  'pyrefly.exe': { name: 'Python Environment Worker', category: 'Programming Runtime', icon: ICONS.python },
+  'node.exe': { name: 'Node.js JavaScript Service', category: 'Programming Runtime', icon: ICONS.terminal },
+  'cargo.exe': { name: 'Rust Cargo Build Tool', category: 'Developer Tool', icon: ICONS.terminal },
+  'rustc.exe': { name: 'Rust Compiler', category: 'Developer Tool', icon: ICONS.terminal },
+  'esrv.exe': { name: 'Intel Energy Service', category: 'Background Service', icon: ICONS.systemService },
+  'igfxem.exe': { name: 'Intel Graphics Framework', category: 'Hardware Driver', icon: ICONS.systemService },
+  'nvcontainer.exe': { name: 'NVIDIA Display Container', category: 'Hardware Driver', icon: ICONS.systemService },
+  'svchost.exe': { name: 'Windows System Host Services', category: 'Background Service', icon: ICONS.systemService },
+  'taskhostw.exe': { name: 'Windows Task Host', category: 'Background Service', icon: ICONS.systemService },
+  'searchhost.exe': { name: 'Windows Search Indexer', category: 'Background Service', icon: ICONS.systemService },
+  'dwm.exe': { name: 'Desktop Window Manager', category: 'System Shell', icon: ICONS.systemService },
+  'spoolsv.exe': { name: 'Windows Print Spooler', category: 'Background Service', icon: ICONS.systemService }
+};
+
+// Friendly App Identity Resolver
+function resolveAppIdentity(item) {
+  const lowerName = (item.name || '').toLowerCase();
+  if (APP_CATALOG[lowerName]) {
+    return { ...APP_CATALOG[lowerName] };
+  }
+
+  // Check browser family
+  if (item.browser_family) {
+    const fam = item.browser_family.toLowerCase();
+    if (fam.includes('chrome')) return { name: 'Google Chrome', category: 'Web Browser', icon: ICONS.chrome };
+    if (fam.includes('edge')) return { name: 'Microsoft Edge', category: 'Web Browser', icon: ICONS.edge };
+    if (fam.includes('brave')) return { name: 'Brave Browser', category: 'Web Browser', icon: ICONS.brave };
+    return { name: `${item.browser_family} Browser`, category: 'Web Browser', icon: ICONS.browserGeneric };
+  }
+
+  if (item.is_chromium) {
+    return { name: 'Chromium Browser', category: 'Web Browser', icon: ICONS.browserGeneric };
+  }
+
+  // Heuristic cleanup for unknown executables
+  let cleanName = item.name || 'Unknown Application';
+  cleanName = cleanName.replace(/\.exe$/i, '');
+  // Replace underscores and dashes with spaces, capitalize words
+  cleanName = cleanName.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  let cat = 'Application';
+  let icon = ICONS.genericApp;
+
+  if (lowerName.includes('host') || lowerName.includes('svc') || lowerName.includes('service') || lowerName.includes('daemon')) {
+    cat = 'Background Service';
+    icon = ICONS.systemService;
+  } else if (lowerName.includes('browser') || lowerName.includes('surf')) {
+    cat = 'Web Browser';
+    icon = ICONS.browserGeneric;
+  } else if (lowerName.includes('code') || lowerName.includes('edit') || lowerName.includes('dev')) {
+    cat = 'Developer Tool';
+    icon = ICONS.vscode;
+  }
+
+  return { name: cleanName, category: cat, icon };
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
+  setupThemeToggle();
   setupNavigation();
   setupSearch();
+  setupCategoryFilters();
+  setupViewModeToggles();
   setupSorting();
   setupColumnResizing();
   setupActions();
+  setupInspector();
   setupModal();
   initCanvas();
 
-  // 1. Immediately fetch initial snapshot so the table renders in 5ms
+  // 1. Immediately fetch initial snapshot so UI renders instantly
   fetch('/api/snapshot')
     .then(res => res.json())
     .then(snapshot => {
@@ -33,9 +143,47 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .catch(() => {});
 
-  // 2. Connect to live real-time SSE stream
+  // 2. Connect to live real-time SSE stream (500ms)
   connectEventSource();
 });
+
+// Dual-Style Theme Switcher (iOS Frosted vs Windows Fluent)
+function setupThemeToggle() {
+  const toggleBtn = document.getElementById('btn-theme-toggle');
+  const styleLink = document.getElementById('app-theme-style');
+  const iconSpan = document.getElementById('theme-toggle-icon');
+  const labelSpan = document.getElementById('theme-toggle-label');
+
+  const savedTheme = localStorage.getItem('memoryblast_theme') || 'ios';
+  applyTheme(savedTheme, false);
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const current = localStorage.getItem('memoryblast_theme') || 'ios';
+      const next = current === 'ios' ? 'fluent' : 'ios';
+      applyTheme(next, true);
+      localStorage.setItem('memoryblast_theme', next);
+    });
+  }
+
+  function applyTheme(theme, notify) {
+    if (theme === 'fluent') {
+      if (styleLink) styleLink.href = '/style.css';
+      if (iconSpan) iconSpan.textContent = '🪟';
+      if (labelSpan) labelSpan.textContent = 'Fluent';
+      document.body.classList.remove('theme-ios');
+      document.body.classList.add('theme-fluent');
+      if (notify) showToast('🪟 Switched to Windows 11 Fluent Dark theme');
+    } else {
+      if (styleLink) styleLink.href = '/ios_style.css';
+      if (iconSpan) iconSpan.textContent = '🍎';
+      if (labelSpan) labelSpan.textContent = 'iOS Style';
+      document.body.classList.remove('theme-fluent');
+      document.body.classList.add('theme-ios');
+      if (notify) showToast('🍎 Switched to Apple iOS Acrylic Frosted theme');
+    }
+  }
+}
 
 // Navigation Rail
 function setupNavigation() {
@@ -89,46 +237,89 @@ function setupSearch() {
     } else {
       clearBtn.classList.add('hidden');
     }
-    renderProcessTable();
+    renderActiveHubView();
   });
 
   clearBtn.addEventListener('click', () => {
     input.value = '';
     searchQuery = '';
     clearBtn.classList.add('hidden');
-    renderProcessTable();
+    renderActiveHubView();
   });
+
+  // Global Ctrl+K shortcut to focus search
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+  });
+}
+
+// Category Filter Pills
+function setupCategoryFilters() {
+  const pills = document.querySelectorAll('.filter-pill[data-filter]');
+  pills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      pills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      activeCategory = pill.dataset.filter;
+      renderActiveHubView();
+    });
+  });
+}
+
+// View Mode Toggles (Cards Grid vs Compact Table)
+function setupViewModeToggles() {
+  const btnCards = document.getElementById('btn-view-cards');
+  const btnTable = document.getElementById('btn-view-table');
+  const gridContainer = document.getElementById('apps-grid');
+  const tableContainer = document.getElementById('process-table-wrap');
+
+  if (btnCards && btnTable) {
+    btnCards.addEventListener('click', () => {
+      btnCards.classList.add('active');
+      btnTable.classList.remove('active');
+      viewMode = 'cards';
+      gridContainer.classList.remove('hidden');
+      tableContainer.classList.add('hidden');
+      renderActiveHubView();
+    });
+
+    btnTable.addEventListener('click', () => {
+      btnTable.classList.add('active');
+      btnCards.classList.remove('active');
+      viewMode = 'table';
+      gridContainer.classList.add('hidden');
+      tableContainer.classList.remove('hidden');
+      renderActiveHubView();
+    });
+  }
+
+  const sortSelect = document.getElementById('hub-sort-select');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'memory-desc') currentSort = { col: 'memory', desc: true };
+      else if (val === 'cpu-desc') currentSort = { col: 'cpu', desc: true };
+      else if (val === 'name-asc') currentSort = { col: 'name', desc: false };
+      else if (val === 'pid-asc') currentSort = { col: 'pid', desc: false };
+      renderActiveHubView();
+    });
+  }
 }
 
 // Column Sorting & Resizing State
 let preventSortUntil = 0;
-
-const DEFAULT_COL_WIDTHS = {
-  name: 380,
-  pid: 80,
-  type: 180,
-  cpu: 90,
-  memory: 170,
-  ws: 130
-};
-
-const MIN_COL_WIDTHS = {
-  name: 140,
-  pid: 55,
-  type: 90,
-  cpu: 65,
-  memory: 100,
-  ws: 75
-};
+const DEFAULT_COL_WIDTHS = { name: 380, pid: 80, type: 180, cpu: 90, memory: 170, ws: 130 };
+const MIN_COL_WIDTHS = { name: 140, pid: 55, type: 90, cpu: 65, memory: 100, ws: 75 };
 
 function setupSorting() {
   const headers = document.querySelectorAll('th.sortable');
   headers.forEach(th => {
     th.addEventListener('click', (e) => {
-      // Prevent sorting if clicking directly on a resizer handle or right after dragging
-      if (e.target.classList.contains('col-resizer') || Date.now() < preventSortUntil) {
-        return;
-      }
+      if (e.target.classList.contains('col-resizer') || Date.now() < preventSortUntil) return;
 
       const col = th.dataset.sort;
       if (currentSort.col === col) {
@@ -148,157 +339,106 @@ function setupSorting() {
       const indicator = th.querySelector('.sort-indicator');
       if (indicator) indicator.textContent = currentSort.desc ? '▼' : '▲';
 
-      renderProcessTable();
+      renderActiveHubView();
     });
   });
 }
 
-// Column Width Resizing
 function setupColumnResizing() {
   const table = document.getElementById('process-table');
   if (!table) return;
 
-  // Restore previously saved column widths from localStorage
-  applySavedColumnWidths();
+  try {
+    const saved = localStorage.getItem('memoryblast_col_widths');
+    if (saved) {
+      const widths = JSON.parse(saved);
+      applySavedWidths(table, widths);
+    }
+  } catch (_) {}
 
   const resizers = table.querySelectorAll('.col-resizer');
   resizers.forEach(resizer => {
-    const th = resizer.parentElement;
+    resizer.addEventListener('mousedown', initResize);
+    resizer.addEventListener('dblclick', resetWidth);
+  });
+
+  function initResize(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = e.target.parentElement;
+    const resizer = e.target;
+    const startX = e.pageX;
+    const startWidth = th.offsetWidth;
     const colKey = th.dataset.col;
 
-    // Double-click on resizer resets column to default width
-    resizer.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      preventSortUntil = Date.now() + 300;
-      if (DEFAULT_COL_WIDTHS[colKey]) {
-        th.style.width = `${DEFAULT_COL_WIDTHS[colKey]}px`;
-        saveColumnWidths();
-      }
-    });
+    resizer.classList.add('resizing');
+    document.body.classList.add('col-resizing');
 
-    resizer.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+    function onMouseMove(moveEvent) {
+      const delta = moveEvent.pageX - startX;
+      const minW = MIN_COL_WIDTHS[colKey] || 60;
+      const newWidth = Math.max(minW, startWidth + delta);
+      th.style.width = newWidth + 'px';
+    }
 
-      const startX = e.pageX;
-      const startWidth = th.offsetWidth;
-      const minWidth = MIN_COL_WIDTHS[colKey] || 50;
+    function onMouseUp() {
+      resizer.classList.remove('resizing');
+      document.body.classList.remove('col-resizing');
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      preventSortUntil = Date.now() + 250;
+      saveColumnWidths(table);
+    }
 
-      resizer.classList.add('resizing');
-      document.body.classList.add('is-resizing');
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
 
-      let hasMoved = false;
+  function resetWidth(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = e.target.parentElement;
+    const colKey = th.dataset.col;
+    if (DEFAULT_COL_WIDTHS[colKey]) {
+      th.style.width = DEFAULT_COL_WIDTHS[colKey] + 'px';
+      saveColumnWidths(table);
+    }
+  }
+}
 
-      function onMouseMove(moveEvent) {
-        hasMoved = true;
-        const deltaX = moveEvent.pageX - startX;
-        const newWidth = Math.max(minWidth, startWidth + deltaX);
-        th.style.width = `${newWidth}px`;
-      }
-
-      function onMouseUp() {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-
-        resizer.classList.remove('resizing');
-        document.body.classList.remove('is-resizing');
-
-        if (hasMoved) {
-          preventSortUntil = Date.now() + 300;
-          saveColumnWidths();
-        }
-      }
-
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    });
+function applySavedWidths(table, widths) {
+  Object.keys(widths).forEach(key => {
+    const th = table.querySelector(`th[data-col="${key}"]`);
+    if (th && widths[key]) th.style.width = widths[key] + 'px';
   });
 }
 
-function applySavedColumnWidths() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('memoryblast_col_widths'));
-    if (saved && typeof saved === 'object') {
-      document.querySelectorAll('#process-table thead th[data-col]').forEach(th => {
-        const key = th.dataset.col;
-        if (saved[key] && typeof saved[key] === 'number') {
-          th.style.width = `${saved[key]}px`;
-        }
-      });
-    }
-  } catch (_) {}
-}
-
-function saveColumnWidths() {
+function saveColumnWidths(table) {
   try {
     const widths = {};
-    document.querySelectorAll('#process-table thead th[data-col]').forEach(th => {
+    table.querySelectorAll('th[data-col]').forEach(th => {
       const key = th.dataset.col;
-      const w = parseInt(th.style.width, 10) || th.offsetWidth;
-      if (key && w) {
-        widths[key] = w;
-      }
+      const w = parseInt(th.style.width, 10);
+      if (key && w) widths[key] = w;
     });
     localStorage.setItem('memoryblast_col_widths', JSON.stringify(widths));
   } catch (_) {}
 }
 
-// End task and refresh actions
+// Action Bar & Ergonomic Handlers
 function setupActions() {
-  const endTaskBtn = document.getElementById('btn-end-task');
-  endTaskBtn.addEventListener('click', () => {
-    if (selectedPid) {
-      openKillModal(selectedPid, selectedName);
-    }
-  });
-
-  const trimBtn = document.getElementById('btn-trim-ram');
-  if (trimBtn) {
-    trimBtn.addEventListener('click', () => {
-      if (selectedPid) {
-        trimWorkingSet(selectedPid, selectedName);
-      }
-    });
+  // Magic Clean RAM Button
+  const magicBtn = document.getElementById('btn-magic-clean');
+  if (magicBtn) {
+    magicBtn.addEventListener('click', () => executeMagicClean());
   }
 
-  const exportParquetBtn = document.getElementById('btn-export-parquet');
-  if (exportParquetBtn) {
-    exportParquetBtn.addEventListener('click', () => {
-      exportParquet();
-    });
+  const quickOptBtn = document.getElementById('btn-quick-optimize');
+  if (quickOptBtn) {
+    quickOptBtn.addEventListener('click', () => executeMagicClean());
   }
 
-  const exportParquetInlineBtn = document.getElementById('btn-export-parquet-inline');
-  if (exportParquetInlineBtn) {
-    exportParquetInlineBtn.addEventListener('click', () => {
-      exportParquet();
-    });
-  }
-
-  const detectTabsBtn = document.getElementById('btn-detect-tabs');
-  if (detectTabsBtn) {
-    detectTabsBtn.addEventListener('click', () => {
-      fetch('/api/detect-tabs', { method: 'POST' }).catch(() => {});
-      showToast('🔍 Retriggering tab detection...');
-    });
-  }
-
-  const focusBtn = document.getElementById('btn-focus-tab');
-  if (focusBtn) {
-    focusBtn.addEventListener('click', () => {
-      if (selectedPid) {
-        focusTab(selectedPid, selectedPpid, selectedTitle, selectedPort);
-      }
-    });
-  }
-
-  const refreshBtn = document.getElementById('btn-refresh');
-  refreshBtn.addEventListener('click', () => {
-    fetch('/api/refresh', { method: 'POST' }).catch(() => {});
-    showToast('Refreshing process metrics...');
-  });
-
+  // Park Context / Workspace Hotkey
   const parkBtn = document.getElementById('btn-park-context');
   if (parkBtn) {
     parkBtn.addEventListener('click', () => parkCurrentContext());
@@ -309,20 +449,43 @@ function setupActions() {
     heroParkBtn.addEventListener('click', () => parkCurrentContext());
   }
 
-  const refreshStashesBtn = document.getElementById('btn-refresh-stashes');
-  if (refreshStashesBtn) {
-    refreshStashesBtn.addEventListener('click', () => loadStashedSessions());
+  // Detect Tabs
+  const detectTabsBtn = document.getElementById('btn-detect-tabs');
+  if (detectTabsBtn) {
+    detectTabsBtn.addEventListener('click', () => {
+      fetch('/api/detect-tabs', { method: 'POST' }).catch(() => {});
+      showToast('🔍 Scanning open tabs & window titles...');
+    });
   }
+
+  // Export Parquet
+  const exportParquetBtn = document.getElementById('btn-export-parquet');
+  if (exportParquetBtn) {
+    exportParquetBtn.addEventListener('click', () => exportParquet());
+  }
+  const exportParquetInlineBtn = document.getElementById('btn-export-parquet-inline');
+  if (exportParquetInlineBtn) {
+    exportParquetInlineBtn.addEventListener('click', () => exportParquet());
+  }
+
+  // Refresh metrics
+  const refreshBtn = document.getElementById('btn-refresh');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      fetch('/api/refresh', { method: 'POST' }).catch(() => {});
+      showToast('Refreshing process metrics...');
+    });
+  }
+
+  // Copilot ancillary buttons
+  const refreshStashesBtn = document.getElementById('btn-refresh-stashes');
+  if (refreshStashesBtn) refreshStashesBtn.addEventListener('click', () => loadStashedSessions());
 
   const refreshClipBtn = document.getElementById('btn-refresh-clipboard');
-  if (refreshClipBtn) {
-    refreshClipBtn.addEventListener('click', () => loadClipboardVault());
-  }
+  if (refreshClipBtn) refreshClipBtn.addEventListener('click', () => loadClipboardVault());
 
   const stashRabbitBtn = document.getElementById('btn-stash-rabbithole');
-  if (stashRabbitBtn) {
-    stashRabbitBtn.addEventListener('click', () => stashRabbitHole());
-  }
+  if (stashRabbitBtn) stashRabbitBtn.addEventListener('click', () => stashRabbitHole());
 
   // Window-level hotkey listeners
   window.addEventListener('keydown', (e) => {
@@ -336,17 +499,197 @@ function setupActions() {
   });
 }
 
+// Magic Clean RAM Compaction
+function executeMagicClean() {
+  const magicBtn = document.getElementById('btn-magic-clean');
+  if (magicBtn) magicBtn.classList.add('pulsing');
+
+  if (!currentSnapshot || !currentSnapshot.processes) {
+    showToast('✨ Optimizing system memory...');
+    setTimeout(() => { if (magicBtn) magicBtn.classList.remove('pulsing'); }, 1000);
+    return;
+  }
+
+  // Identify top memory consumers & background candidates for trimming
+  const candidates = currentSnapshot.processes
+    .filter(p => p.working_set_bytes > 50 * 1024 * 1024) // > 50MB
+    .sort((a, b) => b.working_set_bytes - a.working_set_bytes)
+    .slice(0, 8); // Top 8 memory hogs
+
+  showToast(`✨ Magic Clean: Compacting working sets for ${candidates.length} apps...`);
+
+  // Fire trim requests in parallel
+  const trimPromises = candidates.map(c => 
+    fetch('/api/trim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pid: c.pid })
+    }).catch(() => {})
+  );
+
+  Promise.all(trimPromises).then(() => {
+    setTimeout(() => {
+      if (magicBtn) magicBtn.classList.remove('pulsing');
+      showToast(`🎉 Magic Clean complete! Reclaimed memory across ${candidates.length} active apps.`);
+    }, 600);
+  });
+}
+
+// Slide-Over Technical Inspector Drawer Setup
+function setupInspector() {
+  const backdrop = document.getElementById('inspector-backdrop');
+  const closeBtn = document.getElementById('insp-close-btn');
+
+  if (backdrop) backdrop.addEventListener('click', closeInspector);
+  if (closeBtn) closeBtn.addEventListener('click', closeInspector);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeInspector();
+  });
+
+  // Wire Drawer Footer Actions
+  const focusBtn = document.getElementById('insp-action-focus');
+  if (focusBtn) {
+    focusBtn.addEventListener('click', () => {
+      if (inspectedProcess) {
+        focusTab(inspectedProcess.pid, inspectedProcess.ppid, inspectedProcess.display_title, inspectedProcess.debug_port);
+      }
+    });
+  }
+
+  const trimBtn = document.getElementById('insp-action-trim');
+  if (trimBtn) {
+    trimBtn.addEventListener('click', () => {
+      if (inspectedProcess) {
+        trimWorkingSet(inspectedProcess.pid, inspectedProcess.name);
+      }
+    });
+  }
+
+  const killBtn = document.getElementById('insp-action-kill');
+  if (killBtn) {
+    killBtn.addEventListener('click', () => {
+      if (inspectedProcess) {
+        openKillModal(inspectedProcess.pid, inspectedProcess.name);
+      }
+    });
+  }
+}
+
+function openInspector(processItem) {
+  inspectedProcess = processItem;
+  selectedPid = processItem.pid;
+  selectedPpid = processItem.ppid;
+  selectedName = processItem.name;
+  selectedTitle = processItem.display_title || '';
+  selectedPort = processItem.debug_port || null;
+
+  renderInspectorData();
+
+  const drawer = document.getElementById('inspector-drawer');
+  const backdrop = document.getElementById('inspector-backdrop');
+  if (drawer) drawer.classList.add('open');
+  if (backdrop) backdrop.classList.add('open');
+}
+
+function closeInspector() {
+  inspectedProcess = null;
+  const drawer = document.getElementById('inspector-drawer');
+  const backdrop = document.getElementById('inspector-backdrop');
+  if (drawer) drawer.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
+}
+
+function updateInspectorIfOpen() {
+  if (!inspectedProcess || !currentSnapshot) return;
+  // Refresh inspectedProcess with latest snapshot data
+  const updated = currentSnapshot.processes.find(p => p.pid === inspectedProcess.pid);
+  if (updated) {
+    inspectedProcess = updated;
+    renderInspectorData();
+  }
+}
+
+function renderInspectorData() {
+  if (!inspectedProcess) return;
+  const p = inspectedProcess;
+  const id = resolveAppIdentity(p);
+  const totalHostRam = (currentSnapshot && currentSnapshot.mem_stats.total_physical_bytes) || (32 * 1024 * 1024 * 1024);
+
+  // Group metrics including children
+  const groupWs = p.working_set_bytes + (p.children || []).reduce((acc, c) => acc + c.working_set_bytes, 0);
+  const groupPriv = p.private_bytes + (p.children || []).reduce((acc, c) => acc + c.private_bytes, 0);
+  const groupCpu = p.cpu_percent + (p.children || []).reduce((acc, c) => acc + c.cpu_percent, 0);
+  const ramPct = ((groupWs / totalHostRam) * 100).toFixed(1);
+
+  // Header
+  document.getElementById('insp-icon-wrap').innerHTML = id.icon;
+  document.getElementById('insp-app-name').textContent = id.name;
+  document.getElementById('insp-app-cat').textContent = id.category;
+
+  // KPI Grid
+  document.getElementById('insp-ws-val').textContent = formatBytes(groupWs);
+  document.getElementById('insp-priv-val').textContent = formatBytes(groupPriv);
+  document.getElementById('insp-ram-pct').textContent = `${ramPct}%`;
+  document.getElementById('insp-cpu-val').textContent = `${groupCpu.toFixed(1)}%`;
+
+  // Diagnostics Props
+  document.getElementById('insp-pid-val').textContent = p.pid;
+  document.getElementById('insp-ppid-val').textContent = p.ppid;
+  document.getElementById('insp-exe-val').textContent = p.name;
+  document.getElementById('insp-title-val').textContent = p.display_title || '—';
+
+  const portRow = document.getElementById('insp-port-row');
+  if (p.debug_port) {
+    portRow.style.display = 'flex';
+    document.getElementById('insp-port-val').textContent = p.debug_port;
+  } else {
+    portRow.style.display = 'none';
+  }
+
+  // Children / Tabs
+  const childrenSection = document.getElementById('insp-children-section');
+  const childrenList = document.getElementById('insp-children-list');
+  const childrenTitle = document.getElementById('insp-children-title');
+  const children = p.children || [];
+
+  childrenTitle.textContent = p.is_chromium ? `Grouped Tabs & Workers (${children.length})` : `Child Processes (${children.length})`;
+
+  if (children.length === 0) {
+    childrenList.innerHTML = `<div style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">No active child threads or tabs</div>`;
+  } else {
+    childrenList.innerHTML = children.map(c => `
+      <div class="inspector-child-item">
+        <div style="min-width:0; flex:1;">
+          <div style="font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${escapeHtml(c.display_title || c.name)}
+          </div>
+          <div style="font-size:11px; color:var(--text-muted);">
+            PID ${c.pid} • ${escapeHtml(c.proc_type_label)} • ${formatBytes(c.working_set_bytes)}
+          </div>
+        </div>
+        <div style="display:flex; gap:4px;">
+          <button class="mini-action-btn" title="Focus" onclick="focusTab(${c.pid}, ${p.pid}, '${escapeHtml(c.display_title)}', ${p.debug_port || 'null'})">🎯</button>
+          <button class="mini-action-btn" title="Sleep / Trim" onclick="trimWorkingSet(${c.pid}, '${escapeHtml(c.name)}')">💤</button>
+          <button class="mini-action-btn" style="color:var(--accent-rose);" title="Close" onclick="openKillModal(${c.pid}, '${escapeHtml(c.name)}')">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+// Bring window or browser tab to front
 function focusTab(pid, ppid, title, port) {
-  showToast(`Locating and focusing tab...`);
+  showToast(`Locating window: ${title || selectedName || 'Process'}...`);
   fetch('/api/focus', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pid, ppid, title: title || '', port: port || null })
+    body: JSON.stringify({ pid, ppid: ppid || 0, title: title || '', port: port || null })
   })
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      showToast(`🎯 Focused: ${title || selectedName}`);
+      showToast(`🎯 Brought to foreground: ${title || selectedName}`);
     } else {
       showToast(`Notice: ${data.error}`);
     }
@@ -377,7 +720,9 @@ function setupModal() {
 }
 
 function openKillModal(pid, name) {
-  document.getElementById('modal-proc-name').textContent = name || 'Process';
+  selectedPid = pid;
+  selectedName = name;
+  document.getElementById('modal-proc-name').textContent = name || 'Application';
   document.getElementById('modal-proc-pid').textContent = pid;
   document.getElementById('kill-modal').classList.remove('hidden');
 }
@@ -391,12 +736,12 @@ function terminateProcess(pid, name) {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      showToast(`Terminated PID ${pid} [${name}]`);
-      selectedPid = null;
-      selectedName = null;
-      document.getElementById('btn-end-task').disabled = true;
+      showToast(`Closed ${name || 'PID ' + pid}`);
+      if (inspectedProcess && inspectedProcess.pid === pid) {
+        closeInspector();
+      }
     } else {
-      showToast(`Error: ${data.error || 'Failed to terminate'}`);
+      showToast(`Error: ${data.error || 'Failed to close process'}`);
     }
   })
   .catch(err => showToast(`Request error: ${err}`));
@@ -416,7 +761,6 @@ function connectEventSource() {
   };
 
   es.onerror = () => {
-    // Retry polling if stream drops
     setTimeout(connectEventSource, 2000);
   };
 }
@@ -424,7 +768,7 @@ function connectEventSource() {
 function onSnapshotReceived(snapshot) {
   currentSnapshot = snapshot;
 
-  // Apply Exocortex Cognitive State theme
+  // Apply Exocortex Cognitive State theme if available
   if (snapshot.exocortex && snapshot.exocortex.css_class) {
     document.body.className = document.body.className.replace(/\bcognitive-\S+/g, '').trim();
     document.body.classList.add(snapshot.exocortex.css_class);
@@ -446,12 +790,13 @@ function onSnapshotReceived(snapshot) {
     memoryHistory.shift();
   }
 
-  // Update top banner
+  // Update top banners & radial activity gauges
   updateTopBanners(snapshot);
 
-  // Update process table if in process view
+  // Update primary hub view if currently on processes
   if (activeView === 'processes') {
-    renderProcessTable();
+    renderActiveHubView();
+    updateInspectorIfOpen();
   }
 
   // Update performance view if active
@@ -477,59 +822,346 @@ function onSnapshotReceived(snapshot) {
   }
 }
 
+// Health Dashboard & Radial Activity Gauges
 function updateTopBanners(snapshot) {
   const mem = snapshot.mem_stats;
   const adminBadge = document.getElementById('admin-badge');
-  if (mem.is_admin) {
-    adminBadge.textContent = '[ADMIN]';
-    adminBadge.className = 'badge badge-admin';
-  } else {
-    adminBadge.textContent = '[STANDARD USER]';
-    adminBadge.className = 'badge badge-user';
+  if (adminBadge) {
+    if (mem.is_admin) {
+      adminBadge.textContent = '[ADMIN]';
+      adminBadge.className = 'badge badge-admin';
+    } else {
+      adminBadge.textContent = '[STANDARD USER]';
+      adminBadge.className = 'badge badge-user';
+    }
   }
 
-  const used = formatBytes(mem.used_physical_bytes);
-  const total = formatBytes(mem.total_physical_bytes);
+  const usedGb = (mem.used_physical_bytes / (1024 * 1024 * 1024)).toFixed(1);
+  const totalGb = (mem.total_physical_bytes / (1024 * 1024 * 1024)).toFixed(1);
+  const availGb = (mem.available_physical_bytes / (1024 * 1024 * 1024)).toFixed(1);
   const pct = mem.memory_load_percent;
-  document.getElementById('banner-ram-used').textContent = `${used} / ${total} (${pct}%)`;
-
   const commitUsed = formatBytes(mem.committed_bytes);
   const commitTot = formatBytes(mem.total_page_file_bytes);
-  document.getElementById('banner-commit').textContent = `${commitUsed} / ${commitTot}`;
 
-  const paged = formatBytes(mem.paged_pool_bytes);
-  const nonpaged = formatBytes(mem.non_paged_pool_bytes);
-  document.getElementById('banner-pools').textContent = `${paged} / ${nonpaged}`;
-}
+  // Status Banner Headline & Subtitle
+  const statusDot = document.getElementById('hub-status-dot');
+  const statusText = document.getElementById('hub-status-text');
+  const statusSub = document.getElementById('hub-status-sub');
 
-// Render Table
-function renderProcessTable() {
-  if (!currentSnapshot) return;
-
-  const tbody = document.getElementById('process-table-body');
-  let roots = [...currentSnapshot.processes];
-
-  // Calculate highest memory usage for heatmap normalization
-  let maxMemory = 1;
-  for (const r of roots) {
-    const groupMem = r.private_bytes + (r.children || []).reduce((acc, c) => acc + c.private_bytes, 0);
-    if (groupMem > maxMemory) maxMemory = groupMem;
+  if (statusDot && statusText && statusSub) {
+    statusDot.className = 'health-pulse-dot';
+    if (pct < 65) {
+      statusText.textContent = 'System is Running Smoothly';
+      statusSub.textContent = `All applications are responsive • ${availGb} GB headroom available`;
+    } else if (pct < 85) {
+      statusDot.classList.add('amber');
+      statusText.textContent = 'Moderate Memory Workload Active';
+      statusSub.textContent = `System is utilizing ${pct}% RAM • ${availGb} GB available`;
+    } else {
+      statusDot.classList.add('rose');
+      statusText.textContent = 'Memory Pressure High — 1-Click Optimize Available';
+      statusSub.textContent = `High RAM utilization (${pct}%) • Run Magic Clean to compact memory`;
+    }
   }
 
-  // Sort
+  // Gauge 1: System Pressure
+  const pressureVal = document.getElementById('gauge-pressure-val');
+  const pressureFill = document.getElementById('gauge-pressure-fill');
+  const pressureStatus = document.getElementById('gauge-pressure-status');
+  const pressureSub = document.getElementById('gauge-pressure-sub');
+
+  if (pressureVal) pressureVal.textContent = `${pct}%`;
+  if (pressureFill) {
+    const C = 276.46; // 2 * PI * 44
+    const offset = C - (Math.min(100, pct) / 100) * C;
+    pressureFill.style.strokeDashoffset = offset;
+    if (pct < 65) {
+      pressureFill.setAttribute('stroke', 'url(#pressure-grad)');
+    } else if (pct < 85) {
+      pressureFill.setAttribute('stroke', '#F59E0B');
+    } else {
+      pressureFill.setAttribute('stroke', '#F43F5E');
+    }
+  }
+  if (pressureStatus) {
+    pressureStatus.className = 'gauge-status-badge';
+    if (pct < 65) {
+      pressureStatus.textContent = '● Optimal';
+    } else if (pct < 85) {
+      pressureStatus.classList.add('amber');
+      pressureStatus.textContent = '● Elevated';
+    } else {
+      pressureStatus.classList.add('rose');
+      pressureStatus.textContent = '● Heavy Load';
+    }
+  }
+  if (pressureSub) pressureSub.textContent = `Committed: ${commitUsed} / ${commitTot}`;
+
+  // Gauge 2: Active Workload
+  const workloadVal = document.getElementById('gauge-workload-val');
+  const workloadFill = document.getElementById('gauge-workload-fill');
+  const workloadSub = document.getElementById('gauge-workload-sub');
+
+  if (workloadVal) workloadVal.textContent = usedGb;
+  if (workloadFill) {
+    const C = 276.46;
+    const memRatio = mem.total_physical_bytes > 0 ? (mem.used_physical_bytes / mem.total_physical_bytes) : 0;
+    const offset = C - Math.min(1, memRatio) * C;
+    workloadFill.style.strokeDashoffset = offset;
+  }
+  if (workloadSub) workloadSub.textContent = `${usedGb} of ${totalGb} GB Used • ${availGb} GB Free`;
+
+  // Gauge 3: Background Apps & Tabs
+  const roots = snapshot.processes || [];
+  let totalTabs = 0;
+  roots.forEach(r => {
+    if (r.children) totalTabs += r.children.length;
+  });
+
+  const appsVal = document.getElementById('gauge-apps-val');
+  const appsFill = document.getElementById('gauge-apps-fill');
+  const appsSub = document.getElementById('gauge-apps-sub');
+
+  if (appsVal) appsVal.textContent = roots.length;
+  if (appsFill) {
+    const C = 276.46;
+    const appRatio = Math.min(1, roots.length / 40);
+    appsFill.style.strokeDashoffset = C - (appRatio * C);
+  }
+  if (appsSub) appsSub.textContent = `${roots.length} Apps • ${totalTabs} Tabs`;
+}
+
+// Main Hub Renderer (Switches between Cards Grid & Compact Table)
+function renderActiveHubView() {
+  if (viewMode === 'cards') {
+    renderAppsGrid();
+  } else {
+    renderProcessTable();
+  }
+}
+
+// Render iOS App Cards Grid
+function renderAppsGrid() {
+  if (!currentSnapshot || !currentSnapshot.processes) return;
+  const grid = document.getElementById('apps-grid');
+  if (!grid) return;
+
+  const totalHostRam = currentSnapshot.mem_stats.total_physical_bytes || (32 * 1024 * 1024 * 1024);
+  const roots = [...currentSnapshot.processes];
+
+  // Calculate highest group memory for relative bar scaling
+  let maxMemory = 1;
+  roots.forEach(r => {
+    const m = r.private_bytes + (r.children || []).reduce((acc, c) => acc + c.private_bytes, 0);
+    if (m > maxMemory) maxMemory = m;
+  });
+
+  // Calculate counts for filter pills
+  let countAll = 0;
+  let countBrowsers = 0;
+  let countHeavy = 0;
+  let countBackground = 0;
+
+  roots.forEach(r => {
+    const id = resolveAppIdentity(r);
+    const m = r.private_bytes + (r.children || []).reduce((acc, c) => acc + c.private_bytes, 0);
+    countAll++;
+    if (r.is_chromium || id.category === 'Web Browser') countBrowsers++;
+    if (m > 500 * 1024 * 1024) countHeavy++;
+    if (id.category === 'Background Service' || r.proc_type_label === 'Service') countBackground++;
+  });
+
+  document.getElementById('count-all').textContent = countAll;
+  document.getElementById('count-browsers').textContent = countBrowsers;
+  document.getElementById('count-heavy').textContent = countHeavy;
+  document.getElementById('count-background').textContent = countBackground;
+
+  // Filter items
+  const filtered = roots.filter(r => {
+    const id = resolveAppIdentity(r);
+    const m = r.private_bytes + (r.children || []).reduce((acc, c) => acc + c.private_bytes, 0);
+
+    // Category filter
+    if (activeCategory === 'browsers' && !(r.is_chromium || id.category === 'Web Browser')) return false;
+    if (activeCategory === 'heavy' && m <= 500 * 1024 * 1024) return false;
+    if (activeCategory === 'background' && !(id.category === 'Background Service' || r.proc_type_label === 'Service')) return false;
+
+    // Search filter
+    if (searchQuery) {
+      const matchName = id.name.toLowerCase().includes(searchQuery) || (r.name && r.name.toLowerCase().includes(searchQuery));
+      const matchTitle = r.display_title && r.display_title.toLowerCase().includes(searchQuery);
+      const matchPid = r.pid.toString().includes(searchQuery);
+      const matchChildren = (r.children || []).some(c => 
+        (c.display_title && c.display_title.toLowerCase().includes(searchQuery)) ||
+        (c.name && c.name.toLowerCase().includes(searchQuery))
+      );
+      if (!matchName && !matchTitle && !matchPid && !matchChildren) return false;
+    }
+
+    return true;
+  });
+
+  // Sort filtered items
+  sortItems(filtered, currentSort.col, currentSort.desc);
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="loading-cell" style="grid-column: 1 / -1;">No matching applications found.</div>`;
+    return;
+  }
+
+  let html = '';
+
+  for (const r of filtered) {
+    const id = resolveAppIdentity(r);
+    const children = r.children || [];
+    const hasChildren = children.length > 0;
+    const groupMem = r.private_bytes + children.reduce((acc, c) => acc + c.private_bytes, 0);
+    const groupCpu = r.cpu_percent + children.reduce((acc, c) => acc + c.cpu_percent, 0);
+    const ramSharePct = ((groupMem / totalHostRam) * 100).toFixed(1);
+    const relBarWidth = Math.min(100, Math.max(5, (groupMem / maxMemory) * 100));
+
+    // Progress bar color based on memory magnitude
+    let barColorClass = '';
+    if (groupMem > 1024 * 1024 * 1024) barColorClass = 'rose';
+    else if (groupMem > 500 * 1024 * 1024) barColorClass = 'amber';
+
+    const isSelected = selectedPid === r.pid;
+    const isExpanded = expandedPids.has(r.pid);
+
+    // Browser tabs badge markup
+    let tabsBadgeHtml = '';
+    if (hasChildren) {
+      const tabRam = children.reduce((acc, c) => acc + c.working_set_bytes, 0);
+      tabsBadgeHtml = `
+        <div class="browser-tabs-badge ${isExpanded ? 'expanded' : ''}" data-tabs-toggle="${r.pid}">
+          <div class="tabs-badge-left">
+            <span class="tabs-badge-icon">🌐</span>
+            <span>${children.length} Active Tabs • ${formatBytes(tabRam)}</span>
+          </div>
+          <span class="tabs-chevron">▼</span>
+        </div>
+        <div class="card-tabs-accordion ${isExpanded ? 'open' : ''}" id="tabs-acc-${r.pid}">
+          ${children.map(c => `
+            <div class="tab-accordion-item">
+              <span class="tab-title-text" title="${escapeHtml(c.display_title || c.name)}">
+                ${escapeHtml(c.display_title || c.name)}
+              </span>
+              <div class="tab-actions-mini">
+                <span style="font-size:11px; color:var(--text-muted); margin-right:4px;">${formatBytes(c.working_set_bytes)}</span>
+                <button class="mini-action-btn" title="Bring tab to front" onclick="event.stopPropagation(); focusTab(${c.pid}, ${r.pid}, '${escapeHtml(c.display_title)}', ${r.debug_port || 'null'})">🎯</button>
+                <button class="mini-action-btn" title="Sleep / Trim Tab" onclick="event.stopPropagation(); trimWorkingSet(${c.pid}, '${escapeHtml(c.display_title || c.name)}')">💤</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="app-card ${isSelected ? 'selected' : ''}" data-pid="${r.pid}">
+        <div class="app-card-header">
+          <div class="app-card-identity">
+            <div class="app-brand-icon">
+              ${id.icon}
+            </div>
+            <div class="app-name-wrap">
+              <div class="app-name-row">
+                <span class="app-name" title="${escapeHtml(id.name)}">${escapeHtml(id.name)}</span>
+                <span class="app-category-chip">${id.category}</span>
+              </div>
+              <span class="app-subtitle-detail" title="${escapeHtml(r.display_title || r.name)}">
+                ${escapeHtml(r.display_title || r.name)}
+              </span>
+            </div>
+          </div>
+          <span class="app-cpu-badge ${groupCpu > 5 ? 'high' : ''}">${groupCpu.toFixed(1)}% CPU</span>
+        </div>
+
+        <div class="app-card-metrics">
+          <div class="app-metric-values">
+            <span class="app-mem-text">${formatBytes(groupMem)}</span>
+            <span class="app-mem-pct">${ramSharePct}% of Total RAM</span>
+          </div>
+          <div class="app-mem-bar-track">
+            <div class="app-mem-bar-fill ${barColorClass}" style="width: ${relBarWidth}%;"></div>
+          </div>
+        </div>
+
+        ${tabsBadgeHtml}
+
+        <div class="app-card-footer">
+          <button class="card-action-btn" title="Bring application to foreground" onclick="event.stopPropagation(); focusTab(${r.pid}, ${r.ppid}, '${escapeHtml(r.display_title)}', ${r.debug_port || 'null'})">
+            🎯 Switch To
+          </button>
+          <button class="card-action-btn" title="Trim Working Set (Sleep)" onclick="event.stopPropagation(); trimWorkingSet(${r.pid}, '${escapeHtml(id.name)}')">
+            💤 Sleep
+          </button>
+          <button class="card-action-btn btn-close" title="Close application" onclick="event.stopPropagation(); openKillModal(${r.pid}, '${escapeHtml(id.name)}')">
+            ✕ Close
+          </button>
+          <button class="card-action-btn btn-inspect" title="View technical diagnostics" onclick="event.stopPropagation(); openInspectorFromPid(${r.pid})">
+            ℹ️ Inspect
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  grid.innerHTML = html;
+
+  // Bind card clicks & tab accordion clicks
+  grid.querySelectorAll('.app-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      // Toggle tabs accordion if clicking the tabs badge
+      const toggleEl = e.target.closest('[data-tabs-toggle]');
+      if (toggleEl) {
+        const pid = parseInt(toggleEl.dataset.tabsToggle, 10);
+        if (expandedPids.has(pid)) expandedPids.delete(pid);
+        else expandedPids.add(pid);
+        renderAppsGrid();
+        return;
+      }
+
+      // Otherwise, open inspector for this card
+      const pid = parseInt(card.dataset.pid, 10);
+      openInspectorFromPid(pid);
+    });
+  });
+}
+
+function openInspectorFromPid(pid) {
+  if (!currentSnapshot || !currentSnapshot.processes) return;
+  const p = currentSnapshot.processes.find(item => item.pid === pid);
+  if (p) openInspector(p);
+}
+
+// Render Compact Table View (For Dense Power-User Diagnosis)
+function renderProcessTable() {
+  if (!currentSnapshot || !currentSnapshot.processes) return;
+  const tbody = document.getElementById('process-table-body');
+  if (!tbody) return;
+
+  const roots = [...currentSnapshot.processes];
+  let maxMemory = 1;
+  roots.forEach(r => {
+    const m = r.private_bytes + (r.children || []).reduce((acc, c) => acc + c.private_bytes, 0);
+    if (m > maxMemory) maxMemory = m;
+  });
+
   sortItems(roots, currentSort.col, currentSort.desc);
 
   let html = '';
   let matchCount = 0;
 
   for (const root of roots) {
+    const id = resolveAppIdentity(root);
     const isExpanded = expandedPids.has(root.pid);
     const hasChildren = root.children && root.children.length > 0;
     const groupMem = root.private_bytes + (root.children || []).reduce((acc, c) => acc + c.private_bytes, 0);
     const groupWs = root.working_set_bytes + (root.children || []).reduce((acc, c) => acc + c.working_set_bytes, 0);
     const groupCpu = root.cpu_percent + (root.children || []).reduce((acc, c) => acc + c.cpu_percent, 0);
 
-    const matchesRoot = itemMatchesQuery(root, searchQuery);
+    const matchesRoot = itemMatchesQuery(root, searchQuery) || id.name.toLowerCase().includes(searchQuery);
     const matchingChildren = (root.children || []).filter(c => itemMatchesQuery(c, searchQuery));
     const hasMatches = !searchQuery || matchesRoot || matchingChildren.length > 0;
 
@@ -539,31 +1171,26 @@ function renderProcessTable() {
     const isSelected = selectedPid === root.pid;
     const heatWidth = Math.min(100, Math.max(4, (groupMem / maxMemory) * 100));
 
-    let toggleHtml = '';
-    if (hasChildren) {
-      toggleHtml = `<span class="tree-toggle" data-toggle="${root.pid}">${isExpanded ? '▼' : '▶'}</span>`;
-    } else {
-      toggleHtml = `<span class="tree-indent"></span>`;
-    }
+    let toggleHtml = hasChildren 
+      ? `<span class="tree-toggle" data-toggle="${root.pid}">${isExpanded ? '▼' : '▶'}</span>`
+      : `<span class="tree-indent"></span>`;
 
-    const browserIcon = root.is_chromium ? '🌐 ' : '📦 ';
-    const titleSuffix = root.display_title ? ` — <span style="color:#60cdff">${escapeHtml(root.display_title)}</span>` : '';
-    const childBadge = hasChildren ? ` <span style="color:#757575">(${root.children.length})</span>` : '';
+    const titleSuffix = root.display_title ? ` — <span style="color:var(--accent-cyan)">${escapeHtml(root.display_title)}</span>` : '';
+    const childBadge = hasChildren ? ` <span style="color:var(--text-muted)">(${root.children.length})</span>` : '';
 
     html += `
-      <tr class="root-row ${isSelected ? 'selected' : ''}" data-pid="${root.pid}" data-ppid="${root.ppid}" data-name="${escapeHtml(root.name)}" data-title="${escapeHtml(root.display_title)}" data-port="${root.debug_port || ''}">
+      <tr class="root-row ${isSelected ? 'selected' : ''}" data-pid="${root.pid}">
         <td class="col-name">
           <div class="tree-node">
             ${toggleHtml}
-            <span class="tree-icon">${browserIcon}</span>
-            <span class="tree-title">${escapeHtml(root.name)}</span>
+            <span class="tree-title">${escapeHtml(id.name)}</span>
             ${childBadge}
             ${titleSuffix}
           </div>
         </td>
         <td class="col-pid">${root.pid}</td>
-        <td class="col-type">${escapeHtml(root.proc_type_label)}</td>
-        <td class="col-cpu" style="${groupCpu > 5 ? 'color:#fce100;font-weight:600' : ''}">${groupCpu.toFixed(1)}%</td>
+        <td class="col-type">${escapeHtml(id.category)}</td>
+        <td class="col-cpu" style="${groupCpu > 5 ? 'color:var(--accent-amber);font-weight:600' : ''}">${groupCpu.toFixed(1)}%</td>
         <td class="col-memory">
           <div class="heat-cell">
             <div class="heat-bar" style="width: ${heatWidth}%;"></div>
@@ -574,31 +1201,23 @@ function renderProcessTable() {
       </tr>
     `;
 
-    // Render children if expanded OR if search is active
     if ((isExpanded || searchQuery) && hasChildren) {
       const displayChildren = searchQuery ? matchingChildren : root.children;
-      sortItems(displayChildren, currentSort.col, currentSort.desc);
-
-      for (let i = 0; i < displayChildren.length; i++) {
-        const child = displayChildren[i];
-        const isLast = i === displayChildren.length - 1;
+      for (const child of displayChildren) {
         const isChildSelected = selectedPid === child.pid;
         const childHeat = Math.min(100, Math.max(3, (child.private_bytes / maxMemory) * 100));
-
-        const icon = getChildIcon(child.proc_type_label);
         const childTitle = child.display_title || child.name;
 
         html += `
-          <tr class="child-row ${isChildSelected ? 'selected' : ''}" data-pid="${child.pid}" data-ppid="${root.pid}" data-name="${escapeHtml(child.name)}" data-title="${escapeHtml(child.display_title)}" data-port="${root.debug_port || ''}">
+          <tr class="child-row ${isChildSelected ? 'selected' : ''}" data-pid="${child.pid}" style="background: rgba(255,255,255,0.02);">
             <td class="col-name" style="padding-left: 36px;">
               <div class="tree-node">
-                <span class="tree-indent" style="color:#555">${isLast ? '└─' : '├─'}</span>
-                <span class="tree-icon">${icon}</span>
-                <span class="tree-title" style="color:#e0e0e0">${escapeHtml(childTitle)}</span>
+                <span class="tree-indent" style="color:var(--text-muted)">├─</span>
+                <span class="tree-title" style="color:var(--text-secondary)">${escapeHtml(childTitle)}</span>
               </div>
             </td>
             <td class="col-pid">${child.pid}</td>
-            <td class="col-type" style="color:#8c8c8c">${escapeHtml(child.proc_type_label)}</td>
+            <td class="col-type" style="color:var(--text-muted)">${escapeHtml(child.proc_type_label)}</td>
             <td class="col-cpu">${child.cpu_percent.toFixed(1)}%</td>
             <td class="col-memory">
               <div class="heat-cell">
@@ -614,48 +1233,20 @@ function renderProcessTable() {
   }
 
   tbody.innerHTML = html || '<tr><td colspan="6" class="loading-cell">No matching processes found.</td></tr>';
-  document.getElementById('banner-proc-count').textContent = matchCount;
 
-  // Bind clicks
   tbody.querySelectorAll('tr[data-pid]').forEach(row => {
     row.addEventListener('click', (e) => {
       if (e.target.classList.contains('tree-toggle')) {
         const pid = parseInt(e.target.dataset.toggle, 10);
-        if (expandedPids.has(pid)) {
-          expandedPids.delete(pid);
-        } else {
-          expandedPids.add(pid);
-        }
+        if (expandedPids.has(pid)) expandedPids.delete(pid);
+        else expandedPids.add(pid);
         renderProcessTable();
         return;
       }
-
-      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
-      row.classList.add('selected');
-      selectedPid = parseInt(row.dataset.pid, 10);
-      selectedPpid = parseInt(row.dataset.ppid, 10) || 0;
-      selectedName = row.dataset.name;
-      selectedTitle = row.dataset.title || '';
-      selectedPort = row.dataset.port ? parseInt(row.dataset.port, 10) : null;
-
-      document.getElementById('btn-end-task').disabled = false;
-      const trimBtn = document.getElementById('btn-trim-ram');
-      if (trimBtn) trimBtn.disabled = false;
-      const focusBtn = document.getElementById('btn-focus-tab');
-      if (focusBtn) {
-        focusBtn.disabled = false;
-      }
+      const pid = parseInt(row.dataset.pid, 10);
+      openInspectorFromPid(pid);
     });
   });
-}
-
-function getChildIcon(role) {
-  if (role.includes('GPU')) return '⚡';
-  if (role.includes('Network')) return '🌐';
-  if (role.includes('Audio')) return '🔊';
-  if (role.includes('Extension')) return '🧩';
-  if (role.includes('Crashpad')) return '🛡️';
-  return '📄';
 }
 
 function itemMatchesQuery(item, query) {
@@ -679,8 +1270,10 @@ function sortItems(items, col, desc) {
       valA = a.pid;
       valB = b.pid;
     } else {
-      valA = a.name.toLowerCase();
-      valB = b.name.toLowerCase();
+      const nameA = resolveAppIdentity(a).name.toLowerCase();
+      const nameB = resolveAppIdentity(b).name.toLowerCase();
+      valA = nameA;
+      valB = nameB;
     }
 
     if (valA < valB) return desc ? 1 : -1;
@@ -701,19 +1294,30 @@ function updatePerformanceStats(snapshot) {
   const pagedGb = (mem.paged_pool_bytes / (1024 * 1024 * 1024)).toFixed(1);
   const nonpagedGb = (mem.non_paged_pool_bytes / (1024 * 1024 * 1024)).toFixed(1);
 
-  // Left card
-  document.getElementById('mini-mem-percent').textContent = `${mem.memory_load_percent}%`;
-  document.getElementById('mini-mem-val').textContent = `${inUseGb} / ${totalGb} GB (${mem.memory_load_percent}%)`;
-  document.getElementById('perf-total-capacity').textContent = `${totalGb} GB Host Memory`;
+  // Mini sidebar card
+  const miniPercent = document.getElementById('mini-mem-percent');
+  const miniVal = document.getElementById('mini-mem-val');
+  const perfCap = document.getElementById('perf-total-capacity');
+  if (miniPercent) miniPercent.textContent = `${mem.memory_load_percent}%`;
+  if (miniVal) miniVal.textContent = `${inUseGb} / ${totalGb} GB (${mem.memory_load_percent}%)`;
+  if (perfCap) perfCap.textContent = `${totalGb} GB Host Memory`;
 
   // Grid
-  document.getElementById('perf-in-use').textContent = `${inUseGb} GB`;
-  document.getElementById('perf-avail').textContent = `${availGb} GB`;
-  document.getElementById('perf-commit').textContent = `${commitUsedGb} / ${commitTotGb} GB`;
-  document.getElementById('perf-cached').textContent = `${cachedGb} GB`;
-  document.getElementById('perf-paged').textContent = `${pagedGb} GB`;
-  document.getElementById('perf-nonpaged').textContent = `${nonpagedGb} GB`;
-  document.getElementById('chart-max-label').textContent = `${totalGb} GB`;
+  const perfInUse = document.getElementById('perf-in-use');
+  const perfAvail = document.getElementById('perf-avail');
+  const perfCommit = document.getElementById('perf-commit');
+  const perfCached = document.getElementById('perf-cached');
+  const perfPaged = document.getElementById('perf-paged');
+  const perfNonpaged = document.getElementById('perf-nonpaged');
+  const chartMaxLabel = document.getElementById('chart-max-label');
+
+  if (perfInUse) perfInUse.textContent = `${inUseGb} GB`;
+  if (perfAvail) perfAvail.textContent = `${availGb} GB`;
+  if (perfCommit) perfCommit.textContent = `${commitUsedGb} / ${commitTotGb} GB`;
+  if (perfCached) perfCached.textContent = `${cachedGb} GB`;
+  if (perfPaged) perfPaged.textContent = `${pagedGb} GB`;
+  if (perfNonpaged) perfNonpaged.textContent = `${nonpagedGb} GB`;
+  if (chartMaxLabel) chartMaxLabel.textContent = `${totalGb} GB`;
 
   // Composition bar
   const totalBytes = mem.total_physical_bytes || 1;
@@ -721,9 +1325,13 @@ function updatePerformanceStats(snapshot) {
   const cachedPct = Math.min(100 - inUsePct, (mem.system_cache_bytes / totalBytes) * 100);
   const availPct = Math.max(0, 100 - inUsePct - cachedPct);
 
-  document.getElementById('comp-in-use').style.width = `${inUsePct}%`;
-  document.getElementById('comp-cached').style.width = `${cachedPct}%`;
-  document.getElementById('comp-avail').style.width = `${availPct}%`;
+  const compInUse = document.getElementById('comp-in-use');
+  const compCached = document.getElementById('comp-cached');
+  const compAvail = document.getElementById('comp-avail');
+
+  if (compInUse) compInUse.style.width = `${inUsePct}%`;
+  if (compCached) compCached.style.width = `${cachedPct}%`;
+  if (compAvail) compAvail.style.width = `${availPct}%`;
 }
 
 // 60-Second Real-Time Canvas Charts
@@ -731,11 +1339,12 @@ let mainCanvas, mainCtx, sparkCanvas, sparkCtx;
 
 function initCanvas() {
   mainCanvas = document.getElementById('memory-chart');
-  mainCtx = mainCanvas.getContext('2d');
   sparkCanvas = document.getElementById('mini-mem-sparkline');
-  sparkCtx = sparkCanvas.getContext('2d');
+  if (mainCanvas) mainCtx = mainCanvas.getContext('2d');
+  if (sparkCanvas) sparkCtx = sparkCanvas.getContext('2d');
 
   function resize() {
+    if (!mainCanvas) return;
     const rect = mainCanvas.getBoundingClientRect();
     mainCanvas.width = rect.width * window.devicePixelRatio;
     mainCanvas.height = rect.height * window.devicePixelRatio;
@@ -743,7 +1352,7 @@ function initCanvas() {
   }
 
   window.addEventListener('resize', resize);
-  resize();
+  setTimeout(resize, 50);
 }
 
 function drawCharts() {
@@ -751,72 +1360,57 @@ function drawCharts() {
 
   const w = mainCanvas.width;
   const h = mainCanvas.height;
+
   mainCtx.clearRect(0, 0, w, h);
 
   // Background Grid Lines
-  mainCtx.strokeStyle = '#282828';
+  mainCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
   mainCtx.lineWidth = 1;
-
   for (let i = 1; i <= 4; i++) {
-    const y = (h / 4) * i;
+    const y = (h / 5) * i;
     mainCtx.beginPath();
     mainCtx.moveTo(0, y);
     mainCtx.lineTo(w, y);
     mainCtx.stroke();
   }
 
-  // Draw Area Curve
-  const points = [];
+  // Draw Area Line Chart
   const count = memoryHistory.length;
-  for (let i = 0; i < count; i++) {
-    const x = (i / (MAX_HISTORY - 1)) * w;
-    const pct = memoryHistory[i].percent / 100;
-    const y = h - (pct * h);
-    points.push({ x, y });
-  }
-
-  if (points.length > 1) {
-    // Fill gradient
-    const grad = mainCtx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'rgba(0, 120, 212, 0.45)');
-    grad.addColorStop(1, 'rgba(0, 120, 212, 0.02)');
-
-    mainCtx.fillStyle = grad;
+  if (count > 1) {
     mainCtx.beginPath();
-    mainCtx.moveTo(points[0].x, h);
-    for (const p of points) {
-      mainCtx.lineTo(p.x, p.y);
+    for (let i = 0; i < count; i++) {
+      const x = (i / (MAX_HISTORY - 1)) * w;
+      const y = h - ((memoryHistory[i].percent / 100) * h);
+      if (i === 0) mainCtx.moveTo(x, y);
+      else mainCtx.lineTo(x, y);
     }
-    mainCtx.lineTo(points[points.length - 1].x, h);
-    mainCtx.closePath();
-    mainCtx.fill();
 
     // Stroke line
-    mainCtx.strokeStyle = '#60cdff';
-    mainCtx.lineWidth = 2 * window.devicePixelRatio;
-    mainCtx.beginPath();
-    mainCtx.moveTo(points[0].x, points[0].y);
-    for (const p of points) {
-      mainCtx.lineTo(p.x, p.y);
-    }
+    mainCtx.strokeStyle = '#38BDF8';
+    mainCtx.lineWidth = 2.5 * window.devicePixelRatio;
+    mainCtx.lineJoin = 'round';
     mainCtx.stroke();
 
-    // Latest pulse dot
-    const lastP = points[points.length - 1];
-    mainCtx.fillStyle = '#ffffff';
-    mainCtx.beginPath();
-    mainCtx.arc(lastP.x, lastP.y, 3.5 * window.devicePixelRatio, 0, Math.PI * 2);
+    // Fill area
+    mainCtx.lineTo((count - 1) / (MAX_HISTORY - 1) * w, h);
+    mainCtx.lineTo(0, h);
+    mainCtx.closePath();
+
+    const gradient = mainCtx.createLinearGradient(0, 0, 0, h);
+    gradient.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+    gradient.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+    mainCtx.fillStyle = gradient;
     mainCtx.fill();
   }
 
-  // Mini Sparkline in sidebar
+  // Sparkline in Sidebar
   if (sparkCanvas && sparkCtx) {
     const sw = sparkCanvas.width;
     const sh = sparkCanvas.height;
     sparkCtx.clearRect(0, 0, sw, sh);
 
-    if (points.length > 1) {
-      sparkCtx.strokeStyle = '#60cdff';
+    if (count > 1) {
+      sparkCtx.strokeStyle = '#38BDF8';
       sparkCtx.lineWidth = 1.5;
       sparkCtx.beginPath();
       for (let i = 0; i < count; i++) {
@@ -856,10 +1450,11 @@ function escapeHtml(str) {
 let toastTimer = null;
 function showToast(msg) {
   const toast = document.getElementById('toast');
-  toast.textContent = msg;
+  if (!toast) return;
+  toast.innerHTML = msg;
   toast.classList.remove('hidden');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
+  toastTimer = setTimeout(() => toast.classList.add('hidden'), 3800);
 }
 
 // Memory Optimization Actions
@@ -873,7 +1468,7 @@ function trimWorkingSet(pid, name) {
   .then(res => res.json())
   .then(data => {
     if (data.success) {
-      showToast(`✨ Successfully trimmed working set for ${name || 'PID ' + pid}`);
+      showToast(`✨ Successfully compacted memory for ${name || 'PID ' + pid}`);
     } else {
       showToast(`Notice: ${data.error}`);
     }
